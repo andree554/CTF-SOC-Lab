@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BANANA CO. CTF | Operation: Rotten Peel</title>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka+One&family=Fira+Code:wght@400;500&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --banana: #FFE135;
+  --banana-dark: #F5C518;
+  --banana-shadow: #C8960C;
+  --peel: #8B6914;
+  --bg: #0E1B0E;
+  --bg2: #152015;
+  --bg3: #1C2B1C;
+  --green: #39FF14;
+  --green-dim: #1a7a06;
+  --pink: #FF2D78;
+  --blue: #00C8FF;
+  --text: #F0EFD0;
+  --comic-border: 4px solid #000;
+  --comic-shadow: 6px 6px 0 #000;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Nunito', sans-serif; overflow-x: hidden; min-height: 100vh; }
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ctext y='40' font-size='28' opacity='0.04'%3E🍌%3C/text%3E%3C/svg%3E");
+}
+.bangers { font-family: 'Bangers', cursive; letter-spacing: 3px; }
+.mono { font-family: 'Fira Code', monospace; }
+.btn-comic {
+  border: 3px solid #000; box-shadow: 5px 5px 0 #000;
+  cursor: pointer; font-family: 'Bangers', cursive; letter-spacing: 2px;
+  transition: transform .1s, box-shadow .1s; display: inline-block;
+}
+.btn-comic:hover { transform: translate(2px,2px); box-shadow: 3px 3px 0 #000; }
+.btn-comic:active { transform: translate(5px,5px); box-shadow: 0 0 0 #000; }
+#app { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: 270px; flex-shrink: 0;
+  background: var(--bg2); border-right: 4px solid #000;
+  display: flex; flex-direction: column;
+  overflow-y: auto; position: sticky; top: 0; height: 100vh;
+}
+#sidebar-logo { padding: 18px 14px 12px; border-bottom: 4px solid #000; background: var(--banana); text-align: center; }
+#sidebar-logo h1 { font-size: 2.2rem; color: #000; line-height: 1; text-shadow: 3px 3px 0 var(--peel); }
+#sidebar-logo .sub { font-size: .6rem; font-family: 'Fira Code'; color: #333; font-weight: 700; letter-spacing: .1em; margin-top: 4px; }
+#sidebar-logo .emoji-row { font-size: 1.3rem; margin-top: 5px; }
+#sidebar-player { padding: 10px 14px; background: var(--bg3); border-bottom: 3px solid #000; display: flex; align-items: center; gap: 10px; }
+.avatar-circle { width: 40px; height: 40px; border-radius: 50%; background: var(--banana); border: 3px solid #000; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+#player-name-display { font-size: .82rem; font-weight: 900; color: var(--banana); line-height: 1.2; }
+#player-name-display small { color: var(--text); font-size: .62rem; opacity: .7; display: block; }
+#sidebar-progress-wrap { padding: 9px 14px; border-bottom: 3px solid #000; }
+.prog-label { font-size: .58rem; font-family: 'Fira Code'; color: var(--green); letter-spacing: .12em; margin-bottom: 4px; }
+.prog-track { background: #000; height: 13px; border-radius: 99px; border: 2px solid #000; overflow: hidden; }
+.prog-fill { height: 100%; background: var(--green); border-radius: 99px; transition: width .6s; }
+.prog-pct { text-align: right; font-size: .58rem; font-family: 'Fira Code'; color: var(--green); margin-top: 2px; }
+#sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+.nav-phase-label { font-size: .52rem; font-family: 'Fira Code'; color: var(--banana); letter-spacing: .15em; padding: 7px 6px 2px; opacity: .8; }
+.nav-item { padding: 7px 9px; margin-bottom: 3px; border-radius: 5px; border: 2px solid transparent; cursor: default; font-size: .68rem; font-weight: 800; line-height: 1.2; display: flex; align-items: center; gap: 7px; transition: all .15s; }
+.nav-item.done { background: #0a2e0a; border-color: var(--green-dim); color: var(--green); cursor: pointer; }
+.nav-item.active { background: var(--banana); border-color: #000; color: #000; box-shadow: 3px 3px 0 #000; transform: skewX(-4deg); }
+.nav-item.locked { opacity: .22; pointer-events: none; }
+.nav-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+.nav-num { font-family: 'Fira Code'; font-size: .58rem; opacity: .6; flex-shrink: 0; }
+
+/* ── MAIN ── */
+#main { flex: 1; overflow-y: auto; padding: 28px 30px; }
+
+/* ── INTRO ── */
+#intro-screen { max-width: 680px; margin: 0 auto; padding-top: 16px; }
+.intro-card { background: var(--banana); padding: 28px; border: 5px solid #000; box-shadow: 12px 12px 0 #000; transform: rotate(-1deg); position: relative; overflow: hidden; }
+.intro-card::after { content: '🍌'; font-size: 7rem; position: absolute; right: -16px; bottom: -16px; opacity: .18; transform: rotate(30deg); }
+.intro-title { font-size: 4rem; color: #000; line-height: 1; text-shadow: 4px 4px 0 var(--peel); font-family: 'Bangers', cursive; letter-spacing: 3px; }
+.intro-sub { font-size: 1rem; color: #333; font-weight: 900; margin: 10px 0 20px; font-style: italic; text-align: center; }
+.input-row { display: flex; gap: 10px; }
+.intro-input { flex: 1; background: #fff; border: 4px solid #000; padding: 12px 16px; font-size: 1.2rem; font-weight: 900; color: #000; font-family: 'Nunito'; box-shadow: 4px 4px 0 #000; outline: none; }
+.intro-input::placeholder { color: #999; }
+.intro-btn { background: #000; color: var(--banana); padding: 12px 20px; font-size: 1.6rem; }
+.story-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+.story-card { background: #fff; border: 3px solid #000; box-shadow: 5px 5px 0 #000; padding: 14px; transform: rotate(.8deg); }
+.story-card:nth-child(2) { transform: rotate(-1deg); }
+.story-card:nth-child(3) { transform: rotate(.5deg); }
+.story-card:nth-child(4) { transform: rotate(-1.2deg); }
+.story-card h4 { font-size: .68rem; color: #c00; font-family: 'Fira Code'; letter-spacing: .1em; margin-bottom: 5px; }
+.story-card p { font-size: .78rem; color: #000; font-weight: 700; line-height: 1.5; }
+.intro-continue-row { display: flex; justify-content: center; margin-top: 22px; }
+.intro-continue-btn { background: var(--green); color: #000; padding: 12px 26px; font-size: 1.2rem; }
+
+/* ── OBJECTIVES SCREEN ── */
+#objectives-screen { display: none; max-width: 760px; margin: 0 auto; padding-top: 16px; }
+.obj-header-card { background: var(--bg2); border: 5px solid #000; box-shadow: 10px 10px 0 #000; padding: 22px 26px; margin-bottom: 20px; }
+.obj-header-card h1 { font-family: 'Bangers'; font-size: 2.4rem; color: var(--banana); letter-spacing: 2px; text-shadow: 3px 3px 0 #000; margin-bottom: 8px; }
+.obj-header-card p { font-size: .88rem; color: #ddd; line-height: 1.7; }
+.obj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+.obj-card { background: var(--bg2); border: 3px solid #000; box-shadow: 5px 5px 0 #000; padding: 13px 15px; border-radius: 4px; }
+.obj-card .obj-num { font-family: 'Fira Code'; font-size: .58rem; color: var(--banana); letter-spacing: .1em; opacity: .8; margin-bottom: 3px; }
+.obj-card h4 { font-family: 'Bangers'; font-size: 1.05rem; color: #fff; letter-spacing: 1px; margin-bottom: 5px; }
+.obj-card p { font-size: .74rem; color: #bbb; line-height: 1.55; }
+.obj-skills-card { background: var(--banana); border: 4px solid #000; box-shadow: 8px 8px 0 #000; padding: 18px 22px; margin-bottom: 22px; transform: rotate(-.4deg); }
+.obj-skills-card h4 { font-family: 'Bangers'; font-size: 1.2rem; color: #000; letter-spacing: 1px; margin-bottom: 9px; }
+.obj-skill-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.obj-skill-chip { background: #000; color: var(--banana); font-family: 'Fira Code'; font-size: .68rem; font-weight: 700; padding: 5px 11px; border-radius: 99px; }
+.obj-answer-note { background: #0a0a1a; border: 3px solid var(--blue); border-radius: 5px; padding: 14px 18px; margin-bottom: 24px; }
+.obj-answer-note h4 { font-size: .62rem; color: var(--blue); font-family: 'Fira Code'; letter-spacing: .12em; margin-bottom: 8px; }
+.obj-answer-note ul { padding-left: 18px; }
+.obj-answer-note li { font-size: .78rem; color: #c0d0e8; line-height: 1.8; }
+.obj-answer-note code { background: #111; color: var(--green); padding: 1px 6px; border-radius: 3px; font-family: 'Fira Code'; }
+.obj-begin-row { display: flex; justify-content: center; margin-bottom: 20px; }
+.obj-begin-btn { background: #000; color: var(--banana); padding: 14px 34px; font-size: 1.6rem; }
+
+/* ── RESOURCES BOX (per stage) ── */
+.resources-box { background: rgba(0,200,255,.06); border: 2px solid var(--blue); border-radius: 5px; padding: 12px 16px; margin-bottom: 16px; }
+.resources-box h4 { font-size: .58rem; color: var(--blue); font-family: 'Fira Code'; letter-spacing: .12em; margin-bottom: 8px; }
+.resources-list { display: flex; flex-direction: column; gap: 6px; }
+.resource-link { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: #c0d0e8; text-decoration: none; font-family: 'Fira Code'; padding: 5px 8px; border-radius: 4px; transition: background .15s; }
+.resource-link:hover { background: rgba(0,200,255,.12); color: var(--blue); }
+.resource-link .rlink-arrow { color: var(--blue); flex-shrink: 0; }
+
+/* ── LAB UI ── */
+#lab-ui { display: none; max-width: 860px; margin: 0 auto; }
+.phase-banner { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.phase-tag { background: var(--banana); color: #000; padding: 4px 12px; font-size: .95rem; border: 3px solid #000; box-shadow: 4px 4px 0 #000; display: inline-block; font-family: 'Bangers', cursive; letter-spacing: 2px; }
+.stage-counter { font-family: 'Fira Code'; font-size: .72rem; color: var(--green); }
+
+/* ── KILL CHAIN BAR ── */
+.kill-chain-bar { display: flex; gap: 0; margin-bottom: 22px; overflow: hidden; border: 3px solid #000; border-radius: 5px; box-shadow: 4px 4px 0 #000; }
+.kc-seg { flex: 1; text-align: center; padding: 5px 2px; font-size: .48rem; font-family: 'Fira Code'; font-weight: 700; letter-spacing: .05em; border-right: 2px solid #000; transition: background .4s, color .4s; background: #111; color: #444; }
+.kc-seg:last-child { border-right: none; }
+.kc-seg.done { background: var(--green-dim); color: #afffac; }
+.kc-seg.active { background: var(--banana); color: #000; font-weight: 900; }
+
+/* ── STAGE CARD ── */
+.stage-card { background: var(--bg2); border: 5px solid #000; box-shadow: 10px 10px 0 #000; border-radius: 4px; overflow: hidden; margin-bottom: 18px; }
+.stage-card-header { background: linear-gradient(135deg, var(--bg3), var(--bg2)); border-bottom: 4px solid #000; padding: 18px 22px; display: flex; gap: 18px; align-items: flex-start; }
+.mascot-wrap { flex-shrink: 0; text-align: center; }
+.mascot-bubble { width: 82px; height: 82px; border-radius: 50%; background: var(--banana); border: 4px solid #000; display: flex; align-items: center; justify-content: center; font-size: 2.6rem; box-shadow: 5px 5px 0 #000; animation: wobble 3s ease-in-out infinite; }
+@keyframes wobble { 0%,100%{transform:rotate(-3deg) scale(1)} 50%{transform:rotate(3deg) scale(1.04)} }
+.mascot-name { font-family: 'Bangers'; font-size: .85rem; color: var(--banana); margin-top: 5px; letter-spacing: 1px; }
+.stage-header-text { flex: 1; }
+.stage-num { font-family: 'Fira Code'; font-size: .62rem; color: var(--banana); letter-spacing: .15em; opacity: .8; margin-bottom: 4px; }
+#stage-title { font-family: 'Bangers'; font-size: 2.3rem; color: #fff; line-height: 1; margin-bottom: 9px; text-shadow: 3px 3px 0 #000; }
+.objective-box { background: var(--pink); color: #fff; padding: 9px 13px; border: 3px solid #000; box-shadow: 4px 4px 0 #000; border-radius: 4px; font-size: .78rem; font-weight: 800; }
+.objective-box span { font-size: .58rem; opacity: .8; display: block; font-family: 'Fira Code'; letter-spacing: .1em; margin-bottom: 3px; }
+.stage-card-body { padding: 18px 22px; }
+
+/* ── CONTENT BOXES ── */
+.dave-speech { background: #000; border: 3px solid var(--green); padding: 11px 14px; border-radius: 4px; margin-bottom: 16px; position: relative; }
+.dave-speech::before { content: '💬'; position: absolute; top: -13px; left: 11px; font-size: 1.1rem; }
+.dave-speech p { font-size: .82rem; color: var(--green); font-style: italic; font-family: 'Fira Code'; line-height: 1.6; }
+.lesson-box { border-left: 5px solid var(--banana); background: rgba(255,225,53,.07); padding: 11px 14px; margin-bottom: 16px; border-radius: 0 5px 5px 0; }
+.lesson-box h4 { font-size: .58rem; color: var(--banana); font-family: 'Fira Code'; letter-spacing: .12em; margin-bottom: 5px; }
+.lesson-box p { font-size: .82rem; color: #d4d0b0; line-height: 1.6; }
+.story-box { background: rgba(0,0,0,.35); border: 2px solid #2a3a2a; padding: 13px 16px; border-radius: 5px; margin-bottom: 16px; }
+.story-box h4 { font-size: .58rem; color: #7aff7a; font-family: 'Fira Code'; letter-spacing: .12em; margin-bottom: 5px; }
+#mission-story { font-size: .88rem; line-height: 1.7; color: #ddd; }
+
+/* ── REAL WORLD BOX ── */
+.realworld-box { background: #0a0a1a; border: 3px solid var(--blue); padding: 12px 16px; border-radius: 5px; margin-bottom: 16px; }
+.realworld-box h4 { font-size: .58rem; color: var(--blue); font-family: 'Fira Code'; letter-spacing: .12em; margin-bottom: 6px; }
+.realworld-box p { font-size: .8rem; color: #c0d0e8; line-height: 1.6; }
+
+/* ── QUESTION BOXES (for quiz stages) ── */
+.quiz-box { background: #0a1a0a; border: 3px solid var(--green); border-radius: 5px; padding: 16px; margin-bottom: 16px; }
+.quiz-box h4 { font-size: .62rem; color: var(--green); font-family: 'Fira Code'; letter-spacing: .1em; margin-bottom: 10px; }
+.quiz-question { font-size: .85rem; color: #eee; font-weight: 800; margin-bottom: 10px; }
+.quiz-options { display: flex; flex-direction: column; gap: 7px; }
+.quiz-opt {
+  background: #111; border: 2px solid #333; border-radius: 4px; padding: 9px 14px;
+  cursor: pointer; font-size: .8rem; color: #ccc; transition: all .15s; font-family: 'Fira Code';
+}
+.quiz-opt:hover { border-color: var(--banana); color: var(--banana); }
+.quiz-opt.correct { border-color: var(--green); background: #001a08; color: var(--green); }
+.quiz-opt.wrong { border-color: var(--pink); background: #1a0008; color: var(--pink); }
+.quiz-feedback { margin-top: 8px; font-size: .78rem; font-family: 'Fira Code'; min-height: 18px; }
+.quiz-retry-btn { background: transparent; border: 2px solid var(--pink); color: var(--pink); padding: 4px 12px; font-size: .68rem; font-family: 'Fira Code'; cursor: pointer; border-radius: 4px; margin-top: 6px; transition: all .15s; }
+.quiz-retry-btn:hover { background: var(--pink); color: #000; }
+
+/* ── FLAG QUESTION LABEL ── */
+.flag-question { background: rgba(255,225,53,.07); border-left: 4px solid var(--banana); padding: 9px 14px; border-radius: 3px; margin-bottom: 12px; font-size: .84rem; color: var(--banana); font-weight: 800; line-height: 1.5; }
+
+/* ── TERMINAL ── */
+.terminal-box { background: #000; border: 3px solid var(--green); border-radius: 5px; overflow: hidden; margin-bottom: 18px; box-shadow: 0 0 14px rgba(57,255,20,.1); }
+.terminal-bar { background: #111; padding: 6px 13px; border-bottom: 2px solid #222; display: flex; align-items: center; gap: 5px; }
+.t-dot { width: 10px; height: 10px; border-radius: 50%; }
+.terminal-bar span { font-family: 'Fira Code'; font-size: .62rem; color: #555; margin-left: auto; }
+.terminal-body { padding: 13px 15px; white-space: pre; overflow-x: auto; }
+.terminal-body code { font-family: 'Fira Code'; font-size: .82rem; color: var(--green); display: block; line-height: 1.8; }
+.terminal-body code::before { content: '$ '; opacity: .5; }
+.terminal-body .comment { color: #555; }
+.terminal-body .comment::before { content: '' !important; }
+
+/* ── FILE VIEWER (e.g. phishing_email.txt) ── */
+.filebox { background: #fdfdf5; border: 3px solid var(--banana); border-radius: 5px; overflow: hidden; margin-bottom: 18px; box-shadow: 0 0 14px rgba(255,225,53,.12); }
+.filebox-bar { background: #1a1a1a; padding: 7px 13px; border-bottom: 2px solid #333; display: flex; align-items: center; gap: 7px; }
+.filebox-bar .fb-icon { font-size: .85rem; }
+.filebox-bar span.fb-name { font-family: 'Fira Code'; font-size: .72rem; color: var(--banana); font-weight: 700; }
+.filebox-body { padding: 16px 18px; white-space: pre-wrap; font-family: 'Fira Code'; font-size: .8rem; color: #222; line-height: 1.8; }
+
+/* ── OSINT / SOCIAL LINK BOX ── */
+.osint-box { background: linear-gradient(135deg,#2a0845,#6441a5); border: 3px solid #fff; border-radius: 8px; padding: 15px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; }
+.osint-box .os-icon { font-size: 2rem; flex-shrink: 0; }
+.osint-box .os-text { flex: 1; }
+.osint-box .os-label { font-family: 'Fira Code'; font-size: .58rem; color: #e8d8ff; letter-spacing: .1em; margin-bottom: 4px; }
+.osint-box a.os-link { color: #fff; font-weight: 800; font-size: .88rem; text-decoration: none; word-break: break-all; }
+.osint-box a.os-link:hover { text-decoration: underline; }
+
+/* ── FLAG AREA ── */
+.flag-area { display: flex; gap: 10px; }
+.flag-input { flex: 1; background: #fff; border: 4px solid #000; padding: 11px 14px; font-size: .95rem; font-weight: 900; color: #000; font-family: 'Fira Code'; box-shadow: 4px 4px 0 #000; outline: none; }
+.flag-input::placeholder { color: #aaa; font-family: 'Nunito'; font-weight: 700; }
+.exec-btn { background: var(--green); color: #000; padding: 11px 26px; font-size: 1.4rem; }
+.flag-fmt { font-size: .62rem; color: var(--banana); opacity: .75; margin-top: 5px; font-family: 'Fira Code'; letter-spacing: .07em; }
+#wrong-msg { color: var(--pink); font-family: 'Fira Code'; font-size: .72rem; margin-top: 5px; min-height: 18px; }
+.hint-btn { background: transparent; border: 2px solid var(--banana); color: var(--banana); padding: 5px 14px; font-size: .72rem; font-family: 'Fira Code'; cursor: pointer; border-radius: 4px; margin-top: 7px; transition: all .15s; }
+.hint-btn:hover { background: var(--banana); color: #000; }
+.hint-box { background: rgba(255,225,53,.08); border: 2px dashed var(--banana); padding: 9px 13px; border-radius: 4px; margin-top: 9px; font-size: .78rem; color: var(--banana); display: none; line-height: 1.6; }
+
+/* ── EPILOGUE / CUTSCENES ── */
+.epilogue-wrap { max-width: 900px; margin: 0 auto 26px; }
+.epilogue-title { font-family: 'Bangers'; font-size: 2.1rem; color: var(--banana); text-align: center; letter-spacing: 2px; text-shadow: 3px 3px 0 #000; margin-bottom: 4px; }
+.epilogue-sub { text-align: center; font-family: 'Fira Code'; font-size: .68rem; color: #999; letter-spacing: .12em; margin-bottom: 18px; }
+.epilogue-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.epilogue-card { background: var(--bg2); border: 3px solid #000; box-shadow: 6px 6px 0 #000; border-radius: 5px; overflow: hidden; }
+.epilogue-photo { background: #111; height: 92px; display: flex; align-items: center; justify-content: center; font-size: 2.6rem; border-bottom: 3px solid #000; }
+.epilogue-body { padding: 10px 12px; }
+.epilogue-body h4 { font-family: 'Bangers'; font-size: 1rem; color: #fff; letter-spacing: .5px; margin-bottom: 4px; }
+.epilogue-body p { font-size: .72rem; color: #bbb; line-height: 1.5; }
+.epilogue-thanks { background: var(--banana); border: 4px solid #000; box-shadow: 8px 8px 0 #000; border-radius: 6px; padding: 20px 24px; text-align: center; margin-bottom: 10px; }
+.epilogue-thanks h4 { font-family: 'Bangers'; font-size: 1.4rem; color: #000; letter-spacing: 1px; margin-bottom: 8px; }
+.epilogue-thanks p { font-size: .85rem; color: #111; font-weight: 700; line-height: 1.6; }
+@media(max-width:700px){ .epilogue-grid{grid-template-columns:1fr;} }
+
+/* ── MINI GAME (stage 1) ── */
+.mg-dot { width: 11px; height: 11px; border-radius: 50%; background: #333; border: 2px solid #555; transition: all .3s; }
+.mg-step { }
+
+/* ── ANIMATIONS ── */
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-9px)} 40%{transform:translateX(9px)} 60%{transform:translateX(-7px)} 80%{transform:translateX(7px)} }
+.shake { animation: shake .35s ease-in-out; }
+
+/* ── CERTIFICATE ── */
+#cert-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: 100; overflow-y: auto; padding: 28px 18px; align-items: flex-start; justify-content: center; }
+#cert-overlay.visible { display: flex; }
+.cert-wrap { max-width: 800px; width: 100%; margin: auto; position: relative; }
+.cert-main { background: #FEFAE0; border: 8px solid #000; box-shadow: 20px 20px 0 #000; padding: 44px; text-align: center; position: relative; overflow: hidden; transform: rotate(.3deg); }
+.cert-banana-bg { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; font-size: 16rem; opacity: .04; transform: rotate(-15deg); }
+.cert-stamp { position: absolute; top: 28px; right: 28px; width: 100px; height: 100px; border: 6px solid #c00; border-radius: 50%; display: flex; align-items: center; justify-content: center; transform: rotate(15deg); color: #c00; font-size: .55rem; font-weight: 900; font-family: 'Fira Code'; letter-spacing: .1em; text-align: center; line-height: 1.4; animation: stampPulse 2s ease-in-out infinite; }
+@keyframes stampPulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+.cert-header-line { display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 9px; }
+.cert-line { flex: 1; height: 3px; background: #000; max-width: 75px; }
+.cert-banana-icon { font-size: 1.8rem; }
+.cert-org { font-family: 'Bangers'; font-size: 2.3rem; color: #000; letter-spacing: 4px; margin-bottom: 3px; }
+.cert-org-sub { font-family: 'Fira Code'; font-size: .58rem; color: #555; letter-spacing: .2em; margin-bottom: 26px; }
+.cert-body-text { font-size: .95rem; color: #444; font-weight: 700; margin-bottom: 7px; font-style: italic; }
+.cert-name { font-family: 'Bangers'; font-size: 4.5rem; color: #000; letter-spacing: 4px; line-height: 1; text-shadow: 4px 4px 0 var(--banana-shadow); margin: 7px 0; }
+.cert-title { display: inline-block; background: #000; color: var(--banana); font-family: 'Bangers'; font-size: 1.6rem; letter-spacing: 3px; padding: 5px 22px; margin: 9px 0 22px; }
+.cert-desc { font-size: .85rem; color: #333; line-height: 1.6; max-width: 480px; margin: 0 auto 26px; font-style: italic; }
+.cert-tools { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; margin-bottom: 22px; }
+.cert-tool { background: #000; color: var(--banana); font-family: 'Fira Code'; font-size: .6rem; padding: 4px 10px; border-radius: 3px; border: 2px solid var(--banana-shadow); }
+.cert-badges { display: flex; gap: 13px; justify-content: center; flex-wrap: wrap; margin-bottom: 26px; }
+.cert-badge { background: #000; color: var(--banana); border: 3px solid #000; box-shadow: 4px 4px 0 var(--banana-shadow); padding: 9px 14px; text-align: center; min-width: 92px; }
+.cert-badge .bi { font-size: 1.4rem; display: block; margin-bottom: 3px; }
+.cert-badge .bl { font-size: .52rem; font-family: 'Fira Code'; color: #888; }
+.cert-badge .bv { font-size: .7rem; font-weight: 900; color: var(--banana); }
+.cert-sigs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 18px; border-top: 3px solid #000; padding-top: 18px; }
+.cert-sig { text-align: center; }
+.cert-sig .sig-line { border-top: 2px solid #000; margin-bottom: 3px; padding-top: 3px; }
+.cert-sig .sig-name { font-family: 'Bangers'; font-size: .95rem; color: #000; }
+.cert-sig .sig-title { font-size: .58rem; font-family: 'Fira Code'; color: #666; }
+.cert-footer { margin-top: 14px; font-size: .58rem; font-family: 'Fira Code'; color: #aaa; }
+.cert-funny-quote { background: #000; color: var(--banana); padding: 13px 18px; border: 4px solid #000; box-shadow: 6px 6px 0 var(--banana-shadow); font-family: 'Bangers'; font-size: 1.2rem; letter-spacing: 2px; text-align: center; margin-bottom: 18px; transform: rotate(-.5deg); }
+.cert-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
+.cert-btn-print { background: var(--banana); color: #000; padding: 13px 26px; font-size: 1.4rem; }
+.cert-btn-retry { background: #000; color: var(--banana); padding: 13px 26px; font-size: 1.4rem; }
+
+::-webkit-scrollbar { width: 7px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: var(--banana); border-radius: 4px; }
+@media(max-width:700px){ #sidebar{display:none;} #main{padding:14px;} .stage-card-header{flex-direction:column;} .input-row{flex-direction:column;} .cert-sigs{grid-template-columns:1fr;} .cert-name{font-size:3rem;} }
+@media print{ #sidebar,#cert-actions,.cert-btn-print,.cert-btn-retry{display:none!important;} #cert-overlay{position:static!important;background:#fff!important;} .cert-main{box-shadow:none!important;} body{background:#fff!important;} }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div id="sidebar-logo">
+    <h1 class="bangers">BANANA<br>CO.<br>CTF</h1>
+    <div class="sub">OPERATION: ROTTEN PEEL</div>
+    <div class="emoji-row">🍌🕵️🍌</div>
+  </div>
+  <div id="sidebar-player" style="display:none;">
+    <div class="avatar-circle">🕵️</div>
+    <div>
+      <div id="player-name-display">AGENT<small>loading...</small></div>
+    </div>
+  </div>
+  <div id="sidebar-progress-wrap" style="display:none;">
+    <div class="prog-label">// MISSION PROGRESS</div>
+    <div class="prog-track"><div class="prog-fill" id="sb-prog" style="width:0%"></div></div>
+    <div class="prog-pct" id="sb-pct">0 / 17 flags</div>
+  </div>
+  <nav id="sidebar-nav"></nav>
+</aside>
+
+<!-- MAIN -->
+<main id="main">
+
+<!-- INTRO -->
+<div id="intro-screen">
+  <div class="intro-card">
+    <h1 class="bangers intro-title">OPERATION:<br>ROTTEN PEEL</h1>
+    <p class="intro-sub">⚠️ BANANA CO. IS PLANNING WORLD DOMINATION. ONLY YOU CAN STOP THEM. ⚠️</p>
+    <div class="input-row">
+      <input class="intro-input" id="username-input" placeholder="ENTER YOUR AGENT CODENAME (required)" maxlength="32" autocomplete="off">
+      <button class="btn-comic intro-btn bangers" onclick="goToObjectives()">🍌 DEPLOY</button>
+    </div>
+    <div id="username-error" style="display:none;color:#c00;font-family:'Fira Code';font-size:.8rem;font-weight:800;margin-top:8px;">⚠️ You need to pick a codename before you deploy, Agent.</div>
+  </div>
+  <div class="story-cards">
+    <div class="story-card"><h4>// THE MISSION</h4><p>You're a Red Team intern at Banana Co. Something is deeply, horribly wrong with the bananas. Also with the CEO. Also with everything.</p></div>
+    <div class="story-card"><h4>// THE PROBLEM</h4><p>Every employee eats a banana at exactly 12:00 PM. You have a banana allergy. This makes you the only sane person in the building. Lucky you.</p></div>
+    <div class="story-card"><h4>// THE ENEMY</h4><p>Mr. Peel, CEO. Possibly alien. Definitely suspicious. Loves his dog Z3tar more than is professionally appropriate.</p></div>
+    <div class="story-card"><h4>// YOUR WEAPON</h4><p>A Kali Linux VM, 17 challenges, and the sheer willpower of someone who really doesn't want to be mind-controlled by a fruit.</p></div>
+  </div>
+  <div class="intro-continue-row">
+    <button class="btn-comic intro-continue-btn bangers" onclick="goToObjectives()">SEE WHAT YOU'LL LEARN →</button>
+  </div>
+</div>
+
+<!-- OBJECTIVES SCREEN -->
+<div id="objectives-screen">
+  <div class="obj-header-card">
+    <h1>🎯 MISSION OBJECTIVES</h1>
+    <p>Before you deploy, here's exactly what <span id="obj-username-slot">Agent</span> will cover across all 17 stages — the tools, the techniques, and the real-world skills behind them. This lab walks the full attack chain a red teamer follows in practice: from first recon scan to final evidence handoff.</p>
+  </div>
+
+  <div class="obj-grid" id="obj-grid"></div>
+
+  <div class="obj-skills-card">
+    <h4>🛠️ TOOLS &amp; TECHNIQUES YOU'LL USE</h4>
+    <div class="obj-skill-chips">
+      <span class="obj-skill-chip">nmap</span><span class="obj-skill-chip">curl</span><span class="obj-skill-chip">smbclient</span>
+      <span class="obj-skill-chip">SQL injection</span><span class="obj-skill-chip">phishing</span><span class="obj-skill-chip">Hydra</span>
+      <span class="obj-skill-chip">FTP</span><span class="obj-skill-chip">SSH</span><span class="obj-skill-chip">steghide</span>
+      <span class="obj-skill-chip">SSH tunneling</span><span class="obj-skill-chip">pfSense</span><span class="obj-skill-chip">John the Ripper</span>
+      <span class="obj-skill-chip">SFTP</span><span class="obj-skill-chip">GPG</span><span class="obj-skill-chip">tar/gzip</span>
+    </div>
+  </div>
+
+  <div class="obj-answer-note">
+    <h4>📝 HOW TO SUBMIT ANSWERS</h4>
+    <ul>
+      <li>Answers work like TryHackMe-style CTF questions — type the exact value asked for (a flag, a port number, a username, a password) into the answer box and press EXECUTE.</li>
+      <li>Answers are <strong>not case-sensitive</strong> unless a stage specifically says otherwise.</li>
+      <li>When a question asks for <strong>multiple values</strong> (e.g. a list of open ports or services), separate each value with a comma — order doesn't matter. Entering <code>http, smb, ftp</code> is scored the same as <code>ftp, smb, http</code>.</li>
+      <li>Stuck? Every stage has a 💡 hint button, and a "Learn More" box with outside resources if you want to go deeper.</li>
+    </ul>
+  </div>
+
+  <div class="obj-begin-row">
+    <button class="btn-comic obj-begin-btn bangers" onclick="beginLab()">🍌 BEGIN THE MISSION</button>
+  </div>
+</div>
+
+<!-- LAB UI -->
+<div id="lab-ui">
+  <div class="phase-banner">
+    <div class="phase-tag bangers" id="phase-display">PHASE: RECONNAISSANCE</div>
+    <div class="stage-counter mono" id="stage-counter">STAGE 1 / 17</div>
+  </div>
+  <div class="kill-chain-bar" id="kc-bar">
+    <div class="kc-seg">RECON</div>
+    <div class="kc-seg">WEB</div>
+    <div class="kc-seg">SMB</div>
+    <div class="kc-seg">SQLi</div>
+    <div class="kc-seg">PHISH</div>
+    <div class="kc-seg">BRUTE</div>
+    <div class="kc-seg">FTP</div>
+    <div class="kc-seg">SSH</div>
+    <div class="kc-seg">STEG</div>
+    <div class="kc-seg">TUNNEL</div>
+    <div class="kc-seg">FW</div>
+    <div class="kc-seg">WORDLIST</div>
+    <div class="kc-seg">LATERAL</div>
+    <div class="kc-seg">EXFIL</div>
+    <div class="kc-seg">GPG KEY</div>
+    <div class="kc-seg">DECRYPT</div>
+    <div class="kc-seg">OWNED</div>
+  </div>
+
+  <div class="stage-card" id="stage-card">
+    <div class="stage-card-header">
+      <div class="mascot-wrap">
+        <div class="mascot-bubble" id="mascot-emoji">🍌</div>
+        <div class="mascot-name" id="mascot-name">DAVE</div>
+      </div>
+      <div class="stage-header-text">
+        <div class="stage-num mono" id="stage-num-label">STAGE 01 / 17</div>
+        <h2 id="stage-title" class="bangers">Stage Title</h2>
+        <div class="objective-box">
+          <span>// OBJECTIVE</span>
+          <span id="objective-text">Do the thing</span>
+        </div>
+      </div>
+    </div>
+    <div class="stage-card-body">
+      <div class="dave-speech"><p id="dave-talk">Dave says something wise</p></div>
+      <div class="lesson-box"><h4>🎓 THE LESSON</h4><p id="edu-text">Learning content here</p></div>
+      <div class="realworld-box" id="realworld-box"><h4>🌍 REAL WORLD EXAMPLE</h4><p id="realworld-text"></p></div>
+      <div class="story-box"><h4>📖 THE STORY</h4><p id="mission-story">Story text here</p></div>
+      <div class="resources-box" id="resources-box">
+        <h4>🔗 LEARN MORE — OUTSIDE RESOURCES</h4>
+        <div class="resources-list" id="resources-list"></div>
+      </div>
+
+      <!-- MINI GAME (stage 1 only) -->
+      <div id="minigame-wrap" style="display:none;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <span class="mono" style="font-size:.58rem;color:var(--banana);letter-spacing:.1em;">// MINI-GAME PROGRESS</span>
+          <div style="display:flex;gap:5px;margin-left:8px;">
+            <div class="mg-dot" id="mgd0"></div>
+            <div class="mg-dot" id="mgd1"></div>
+            <div class="mg-dot" id="mgd2"></div>
+          </div>
+        </div>
+        <!-- STEP 0: What is a port? drag & drop -->
+        <div id="mg-step0">
+          <div style="background:#0a1a0a;border:3px solid var(--green);border-radius:5px;padding:16px 18px;margin-bottom:12px;">
+            <div class="mono" style="font-size:.58rem;color:var(--green);letter-spacing:.12em;margin-bottom:9px;">// LESSON 01 — WHAT IS AN OPEN PORT?</div>
+            <p style="font-size:.86rem;color:#ccc;line-height:1.75;margin-bottom:10px;">Think of a computer like an apartment building. The <strong style="color:var(--banana)">IP address</strong> is the street address. Inside there are <strong style="color:var(--banana)">65,535 numbered doors</strong> — these are <strong style="color:var(--banana)">ports</strong>. An <strong style="color:#39FF14">OPEN</strong> port has a service listening behind it. A <strong style="color:#f87171">CLOSED</strong> port slams shut. A <strong style="color:#facc15">FILTERED</strong> port is blocked by a firewall — it doesn't even answer.</p>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px;">
+              <div style="background:#000;border:2px solid #39FF14;border-radius:4px;padding:9px;text-align:center;"><div style="font-size:1.3rem;">🟢</div><div class="bangers" style="color:#39FF14;font-size:.95rem;">OPEN</div><div style="font-size:.68rem;color:#aaa;margin-top:3px;">Service running.<br>Knock → answers.</div></div>
+              <div style="background:#000;border:2px solid #f87171;border-radius:4px;padding:9px;text-align:center;"><div style="font-size:1.3rem;">🔴</div><div class="bangers" style="color:#f87171;font-size:.95rem;">CLOSED</div><div style="font-size:.68rem;color:#aaa;margin-top:3px;">No service here.<br>Door slams shut.</div></div>
+              <div style="background:#000;border:2px solid #facc15;border-radius:4px;padding:9px;text-align:center;"><div style="font-size:1.3rem;">🟡</div><div class="bangers" style="color:#facc15;font-size:.95rem;">FILTERED</div><div style="font-size:.68rem;color:#aaa;margin-top:3px;">Firewall blocks it.<br>No response at all.</div></div>
+            </div>
+          </div>
+          <div style="background:#111;border:2px dashed #333;border-radius:5px;padding:13px 16px;margin-bottom:12px;">
+            <div class="mono" style="font-size:.58rem;color:var(--banana);letter-spacing:.1em;margin-bottom:8px;">❓ DRAG each service to its correct port door:</div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px;" id="mg0-services">
+              <div class="mg0-chip" draggable="true" data-svc="HTTP" style="background:var(--banana);color:#000;padding:6px 13px;border:3px solid #000;border-radius:4px;cursor:grab;font-weight:900;font-size:.78rem;box-shadow:3px 3px 0 #000;">🌐 HTTP</div>
+              <div class="mg0-chip" draggable="true" data-svc="FTP" style="background:#00C8FF;color:#000;padding:6px 13px;border:3px solid #000;border-radius:4px;cursor:grab;font-weight:900;font-size:.78rem;box-shadow:3px 3px 0 #000;">📁 FTP</div>
+              <div class="mg0-chip" draggable="true" data-svc="SMB" style="background:#FF2D78;color:#fff;padding:6px 13px;border:3px solid #000;border-radius:4px;cursor:grab;font-weight:900;font-size:.78rem;box-shadow:3px 3px 0 #000;">🗂️ SMB</div>
+            </div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;" id="mg0-doors">
+              <div class="mg0-door" data-ans="FTP" style="min-width:86px;background:#1a1a1a;border:2px dashed #555;border-radius:4px;padding:9px;text-align:center;font-size:.72rem;color:#555;"><div style="font-size:1.1rem;">🚪</div><div class="mono" style="color:var(--banana);font-size:.78rem;font-weight:700;">Port 21</div><div style="font-size:.58rem;margin-top:2px;">Drop here</div></div>
+              <div class="mg0-door" data-ans="HTTP" style="min-width:86px;background:#1a1a1a;border:2px dashed #555;border-radius:4px;padding:9px;text-align:center;font-size:.72rem;color:#555;"><div style="font-size:1.1rem;">🚪</div><div class="mono" style="color:var(--banana);font-size:.78rem;font-weight:700;">Port 80</div><div style="font-size:.58rem;margin-top:2px;">Drop here</div></div>
+              <div class="mg0-door" data-ans="SMB" style="min-width:86px;background:#1a1a1a;border:2px dashed #555;border-radius:4px;padding:9px;text-align:center;font-size:.72rem;color:#555;"><div style="font-size:1.1rem;">🚪</div><div class="mono" style="color:var(--banana);font-size:.78rem;font-weight:700;">Port 445</div><div style="font-size:.58rem;margin-top:2px;">Drop here</div></div>
+            </div>
+            <div id="mg0-feedback" style="margin-top:9px;font-size:.78rem;font-family:'Fira Code';min-height:18px;"></div>
+          </div>
+          <button class="btn-comic bangers" id="mg0-next" onclick="mgStep(1)" style="background:var(--green);color:#000;padding:9px 22px;font-size:1.1rem;opacity:.4;pointer-events:none;">NEXT LESSON →</button>
+        </div>
+        <!-- STEP 1: SMB 139 vs 445 true/false -->
+        <div id="mg-step1" style="display:none;">
+          <div style="background:#0a1a0a;border:3px solid var(--green);border-radius:5px;padding:16px 18px;margin-bottom:12px;">
+            <div class="mono" style="font-size:.58rem;color:var(--green);letter-spacing:.12em;margin-bottom:9px;">// LESSON 02 — SMB: PORT 139 vs PORT 445</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:10px 0;">
+              <div style="background:#1a0010;border:3px solid #FF2D78;border-radius:5px;padding:13px;"><div class="bangers" style="color:#FF2D78;font-size:1.2rem;">PORT 139 — OLD 👴</div><div style="font-size:.72rem;color:#ccc;margin-top:7px;line-height:1.7;">NetBIOS over TCP from the 1980s. Slow, chatty legacy protocol. Still present on unpatched Windows for backwards compatibility.</div></div>
+              <div style="background:#001a08;border:3px solid #39FF14;border-radius:5px;padding:13px;"><div class="bangers" style="color:#39FF14;font-size:1.2rem;">PORT 445 — MODERN ✅</div><div style="font-size:.72rem;color:#ccc;margin-top:7px;line-height:1.7;">SMB directly over TCP/IP — no NetBIOS middleman. Introduced with Windows 2000. This is the port nmap shows on every modern machine.</div></div>
+            </div>
+            <div style="background:#000;border-left:4px solid var(--banana);padding:9px 13px;border-radius:0 4px 4px 0;margin-top:5px;"><span style="font-size:.72rem;color:var(--banana);font-weight:900;">🍌 DAVE SAYS: </span><span style="font-size:.75rem;color:#ddd;font-style:italic;">"We target 445 because it's SMB speaking directly — no translator needed. 139 is the janitor's back entrance from 1987."</span></div>
+          </div>
+          <div style="background:#111;border:2px dashed #333;border-radius:5px;padding:13px 16px;margin-bottom:12px;">
+            <div class="mono" style="font-size:.58rem;color:var(--banana);letter-spacing:.1em;margin-bottom:9px;">❓ TRUE OR FALSE:</div>
+            <div style="font-size:.83rem;color:#eee;margin-bottom:9px;font-weight:700;" id="mg1-question">Loading...</div>
+            <div style="display:flex;gap:9px;" id="mg1-choices"></div>
+            <div id="mg1-feedback" style="margin-top:9px;font-size:.78rem;font-family:'Fira Code';min-height:18px;"></div>
+          </div>
+          <button class="btn-comic bangers" id="mg1-next" onclick="mgStep(2)" style="background:var(--green);color:#000;padding:9px 22px;font-size:1.1rem;opacity:.4;pointer-events:none;">RUN THE SCAN →</button>
+        </div>
+        <!-- STEP 2: Real nmap flag input -->
+        <div id="mg-step2" style="display:none;">
+          <div style="background:#0a1a0a;border:3px solid var(--green);border-radius:5px;padding:16px 18px;margin-bottom:12px;">
+            <div class="mono" style="font-size:.58rem;color:var(--green);letter-spacing:.12em;margin-bottom:8px;">// LESSON 03 — RUN YOUR FIRST NMAP SCAN</div>
+            <p style="font-size:.84rem;color:#ccc;line-height:1.7;margin-bottom:9px;">You've learned what ports are and why SMB uses 445. Now run nmap on the Banana Co. target machine on your Kali VM. Read the STATE column — only <strong style="color:var(--green)">OPEN</strong> ports count.</p>
+            <div style="background:#000;border-left:4px solid var(--banana);padding:9px 13px;border-radius:0 4px 4px 0;"><span style="font-size:.72rem;color:var(--banana);font-weight:900;">🍌 DAVE SAYS: </span><span style="font-size:.75rem;color:#ddd;font-style:italic;">"Run <code style="color:var(--green);background:#111;padding:1px 5px;border-radius:2px;">nmap -sV 10.10.10.5</code> on your VM. The <code style="color:var(--green);background:#111;padding:1px 5px;border-radius:2px;">-sV</code> flag detects service versions."</span></div>
+          </div>
+          <div style="background:#000;border:3px solid var(--green);border-radius:5px;overflow:hidden;margin-bottom:16px;box-shadow:0 0 18px rgba(57,255,20,.1);">
+            <div style="background:#111;padding:6px 13px;border-bottom:2px solid #1a1a1a;display:flex;align-items:center;gap:5px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#ff5f57;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#febc2e;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#28c840;"></div>
+              <span class="mono" style="font-size:.58rem;color:#555;margin-left:auto;">your kali vm</span>
+            </div>
+            <div style="padding:14px 16px;font-family:'Fira Code';font-size:.82rem;line-height:1.9;">
+              <span style="color:#555;">$</span> <span style="color:var(--green);">nmap -sV 10.10.10.5</span>
+            </div>
+          </div>
+          <div style="background:#111;border:2px dashed #333;border-radius:5px;padding:15px 17px;margin-bottom:12px;">
+            <div class="mono" style="font-size:.58rem;color:var(--banana);letter-spacing:.1em;margin-bottom:11px;">// 🚩 ENTER YOUR FLAG</div>
+            <div style="display:flex;gap:10px;">
+              <input id="mg2-flag-input" autocomplete="off" spellcheck="false" placeholder="what did you find?" style="flex:1;background:#fff;border:4px solid #000;padding:11px 14px;font-size:.95rem;font-weight:900;color:#000;font-family:'Fira Code';box-shadow:4px 4px 0 #000;outline:none;" onkeydown="if(event.key==='Enter') mg2FlagCheck()">
+              <button class="btn-comic bangers" onclick="mg2FlagCheck()" style="background:var(--banana);color:#000;padding:11px 22px;font-size:1.3rem;">EXECUTE 🍌</button>
+            </div>
+            <div id="mg2-feedback" style="margin-top:9px;font-size:.78rem;font-family:'Fira Code';min-height:18px;"></div>
+          </div>
+        </div>
+      </div>
+      <!-- END MINI GAME -->
+
+      <div class="flag-question mono" id="flag-question" style="display:none;"></div>
+
+      <!-- QUIZ AREA (for quiz stages) -->
+      <div id="quiz-wrap" style="display:none;">
+        <div class="quiz-box">
+          <h4 id="quiz-label">❓ KNOWLEDGE CHECK</h4>
+          <div id="quiz-questions-wrap"></div>
+        </div>
+      </div>
+
+      <div class="terminal-box" id="normal-terminal">
+        <div class="terminal-bar">
+          <div class="t-dot" style="background:#ff5f57"></div>
+          <div class="t-dot" style="background:#febc2e"></div>
+          <div class="t-dot" style="background:#28c840"></div>
+          <span>banana-terminal ~ zsh</span>
+        </div>
+        <div class="terminal-body" id="terminal-body-wrap">
+          <code id="mission-code"></code>
+        </div>
+      </div>
+      <div class="filebox" id="filebox-wrap" style="display:none;">
+        <div class="filebox-bar"><span class="fb-icon">📄</span><span class="fb-name" id="filebox-name"></span></div>
+        <div class="filebox-body" id="filebox-body"></div>
+      </div>
+      <div class="osint-box" id="osint-box" style="display:none;">
+        <div class="os-icon">📸</div>
+        <div class="os-text">
+          <div class="os-label" id="osint-label">// OSINT LEAD</div>
+          <a class="os-link" id="osint-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+      </div>
+      <div class="flag-area" id="normal-flag-area">
+        <input class="flag-input" id="flag-input" placeholder="Enter your answer..." onkeydown="if(event.key==='Enter')checkFlag()">
+        <button class="btn-comic exec-btn bangers" onclick="checkFlag()">EXECUTE 🍌</button>
+      </div>
+      <div class="flag-fmt mono" id="flag-format-hint"></div>
+      <div id="wrong-msg"></div>
+      <button class="hint-btn mono" onclick="toggleHint()">💡 NEED A HINT?</button>
+      <div class="hint-box" id="hint-box"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- CERTIFICATE -->
+<div id="cert-overlay">
+  <div class="cert-wrap">
+
+    <!-- EPILOGUE / CUTSCENES -->
+    <div class="epilogue-wrap">
+      <div class="epilogue-title bangers">📽️ EPILOGUE — WHERE ARE THEY NOW</div>
+      <div class="epilogue-sub mono">// SIX MONTHS LATER //</div>
+      <div class="epilogue-grid">
+        <div class="epilogue-card">
+          <div class="epilogue-photo">🛸⛓️</div>
+          <div class="epilogue-body"><h4>Mr. Peel</h4><p>Extradited off-world and sentenced by an intergalactic tribunal. Currently serving time in a maximum-security prison. Reportedly still trying to smuggle bananas.</p></div>
+        </div>
+        <div class="epilogue-card">
+          <div class="epilogue-photo">🛸❓</div>
+          <div class="epilogue-body"><h4>Andrew</h4><p>The second alien CEO. Vanished the night of the raid. Found weeks later in a mysterious, unmarked location. No one is quite sure what happened. No one is asking too many questions.</p></div>
+        </div>
+        <div class="epilogue-card">
+          <div class="epilogue-photo">🍣</div>
+          <div class="epilogue-body"><h4>Koki</h4><p>Free from banana-milk mind control at last. Now eats sushi for lunch every day and has never been happier.</p></div>
+        </div>
+        <div class="epilogue-card">
+          <div class="epilogue-photo">💼</div>
+          <div class="epilogue-body"><h4 id="epi-username">The Intern</h4><p>Went from unpaid intern to full-time Red Team lead in record time. Turns out saving the world from mind-controlling fruit looks great on a resume.</p></div>
+        </div>
+        <div class="epilogue-card">
+          <div class="epilogue-photo">🎖️</div>
+          <div class="epilogue-body"><h4>The President</h4><p>Personally awarded the student a medal of honor at a small, slightly awkward ceremony. There was, notably, no fruit platter.</p></div>
+        </div>
+        <div class="epilogue-card">
+          <div class="epilogue-photo">⚽🌍</div>
+          <div class="epilogue-body"><h4>Harry Kane</h4><p>Officially retired from Banana Co. Now travels the world full-time — and has sworn off bananas, vacations photos, and FTP servers forever.</p></div>
+        </div>
+      </div>
+      <div class="epilogue-thanks">
+        <h4>🌟 SPECIAL THANKS 🌟</h4>
+        <p id="epi-thanks">To the agent who solved every stage and saved the world from banana-flavoured mind control — thank you. Humanity owes you one.</p>
+      </div>
+    </div>
+    <!-- END EPILOGUE -->
+
+    <div class="cert-funny-quote bangers">🍌 "I CAME. I SAW. I REFUSED TO EAT THE BANANA." 🍌</div>
+    <div class="cert-main">
+      <div class="cert-banana-bg">🍌</div>
+      <div class="cert-stamp">★ MIND<br>CONTROL<br>RESISTANT<br>★</div>
+      <div class="cert-header-line"><div class="cert-line"></div><div class="cert-banana-icon">🍌</div><div class="cert-line"></div></div>
+      <div class="cert-org bangers">BANANA ACADEMY</div>
+      <div class="cert-org-sub mono">// DIVISION OF FRUITY CYBER OPERATIONS //</div>
+      <div class="cert-body-text">This completely unhinged document certifies that:</div>
+      <div class="cert-name bangers" id="cert-name">AGENT</div>
+      <div class="cert-title bangers">Certified Banana Buster™</div>
+      <div class="cert-desc">
+        Has survived 17 stages of fruity cyber operations, used tools no intern should ever know,
+        exposed two alien CEOs, cracked GPG encryption with a dog's name, extracted steganographic
+        evidence from a vacation photo, tunnelled through firewalls, and saved all 7.9 billion humans
+        from a banana-milk mind-control smoothie.<br><br>
+        <strong>This person is unhinged. We gave them a full-time job.</strong>
+      </div>
+      <div class="cert-tools">
+        <span class="cert-tool">nmap</span><span class="cert-tool">curl</span><span class="cert-tool">smbclient</span>
+        <span class="cert-tool">SQLi</span><span class="cert-tool">phishing</span><span class="cert-tool">hydra</span>
+        <span class="cert-tool">ftp</span><span class="cert-tool">ssh</span><span class="cert-tool">steghide</span>
+        <span class="cert-tool">ssh-tunnel</span><span class="cert-tool">pfSense</span><span class="cert-tool">john</span>
+        <span class="cert-tool">sftp</span><span class="cert-tool">gpg</span><span class="cert-tool">tar</span>
+      </div>
+      <div class="cert-badges">
+        <div class="cert-badge"><span class="bi">🔍</span><span class="bl">OSINT MASTER</span><span class="bv">FOUND THE<br>DOG'S NAME</span></div>
+        <div class="cert-badge"><span class="bi">🍌</span><span class="bl">IMMUNITY</span><span class="bv">BANANA<br>RESISTANT</span></div>
+        <div class="cert-badge"><span class="bi">🛸</span><span class="bl">ALIENS DEPORTED</span><span class="bv">COUNT: 2<br>PLANET: GONE</span></div>
+        <div class="cert-badge"><span class="bi">🔐</span><span class="bl">CRYPTO CRACKER</span><span class="bv">GPG? NO<br>PROBLEM</span></div>
+        <div class="cert-badge"><span class="bi">🌍</span><span class="bl">WORLDS SAVED</span><span class="bv">EXACTLY<br>ONE (1)</span></div>
+      </div>
+      <div class="cert-sigs">
+        <div class="cert-sig"><div class="sig-line"></div><div style="font-family:cursive;font-size:1.1rem;color:#555;margin-bottom:2px;">Dave Bananaman</div><div class="cert-sig-name bangers" style="font-family:'Bangers';font-size:.95rem;color:#000;">👴 Old Man Dave</div><div class="cert-sig-title" style="font-size:.56rem;font-family:'Fira Code';color:#666;">Chief Banana Whisperer</div></div>
+        <div class="cert-sig"><div class="sig-line"></div><div style="font-family:cursive;font-size:1.1rem;color:#555;margin-bottom:2px;">Mr. Peel (arrested)</div><div style="font-family:'Bangers';font-size:.95rem;color:#000;">🛸 Mr. Peel</div><div style="font-size:.56rem;font-family:'Fira Code';color:#666;">Currently: Outer Space</div></div>
+        <div class="cert-sig"><div class="sig-line"></div><div style="font-family:cursive;font-size:1.1rem;color:#555;margin-bottom:2px;">Z3tar 🐾</div><div style="font-family:'Bangers';font-size:.95rem;color:#000;">🐶 Z3tar</div><div style="font-size:.56rem;font-family:'Fira Code';color:#666;">Mr. Peel's Dog<br>Only Innocent Party</div></div>
+      </div>
+      <div class="cert-footer mono">CERT-ID: BANA-<span id="cert-id"></span> | AES-BANANA-256 | THREAT: 🍌🍌🍌🍌🍌 | STATUS: WORLD SAVED</div>
+    </div>
+    <div class="cert-actions" id="cert-actions">
+      <button class="btn-comic cert-btn-print bangers" onclick="window.print()">🖨️ PRINT CERT</button>
+      <button class="btn-comic cert-btn-retry bangers" onclick="location.reload()">🔄 REPLAY MISSION</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let current = 0, wrongCount = 0, hintVisible = false;
+let userName = 'Agent';
+
+// ══════════════════════════════════════════
+//  STAGE DATA — 17 STAGES
+// ══════════════════════════════════════════
+const stages = [
+// ─── STAGE 1: NMAP ───
+{
+  phase:"Reconnaissance", mascot:"🍌", mascotName:"SQUEAKY DAVE",
+  t:"Chapter 1: Port Scan — Nmap",
+  edu:"Nmap (Network Mapper) is every red teamer's first move. It scans a target IP for open ports and identifies what services are running behind them. The -sV flag detects service versions. The output shows three columns: PORT (number/protocol), STATE (open/closed/filtered), and SERVICE (what's running).",
+  rw:"Nmap is used by every penetration tester on Earth. It was how Marcus Hutchins (the researcher who stopped WannaCry) analysed infected networks. It is also how Shodan indexes the entire internet. Learning to read nmap output is like learning to read a map.",
+  story:"Your intern laptop just arrived. The IT guy handed it over with that same glazed smile everyone here seems to have. You plug into the corporate network and run the most natural thing a curious intern would do — a port scan. Three doors open. One web server. One file transfer server. One Windows file share.",
+  obj:"Run nmap on the target. Find all open ports and enter them.",
+  dave:"Before you pick a lock you gotta know which doors exist. Run the scan. Read the STATE column. Only OPEN ports matter. And no, you can't just knock.",
+  code:"nmap -sV 10.10.10.5",
+  fmt:"// FORMAT → port,port,port   example: 34,566,2000",
+  hint:"Three open ports: a web server (HTTP), a file transfer server (FTP), and a Windows file sharing server (SMB). Use their default port numbers.",
+  question:"What are the open ports on the target machine?",
+  f:"21,80,445",
+  isMinigame: true,
+  links:[
+    {label:"Nmap Official Reference Guide", url:"https://nmap.org/book/man.html"},
+    {label:"TryHackMe — Nmap room", url:"https://tryhackme.com/room/furthernmap"},
+    {label:"IANA — TCP/UDP Port Number Registry", url:"https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml"}
+  ]
+},
+// ─── STAGE 2: CURL ───
+{
+  phase:"Web Enumeration", mascot:"🌐", mascotName:"WEB DAVE",
+  t:"Chapter 2: Web Recon — curl",
+  edu:"After nmap finds open ports, the next step is to actually talk to them. curl (Client URL) is a command-line tool that sends HTTP requests and shows you the raw response — headers, HTML, hidden comments, everything the browser hides from you. We run curl AFTER nmap because nmap tells us WHERE to look. curl tells us WHAT is there.",
+  rw:"curl is used in bug bounty hunting, API testing, and server fingerprinting. The famous 2020 Twitter hack started with attackers enumerating internal admin tools via web requests — essentially manual curl-style reconnaissance.",
+  story:"Port 80 is open. Time to look at what the Banana Co. web server is actually serving. You run curl against the IP and get the raw HTML back. It looks normal on the surface — company slogan, employee portal links, an unsettling amount of banana imagery. But in the HTML source code, buried in a comment, someone left a note. Developers do this all the time. They forget. You don't.",
+  obj:"Run curl on the target web server and search the HTML source for a hidden comment containing the SMB password.",
+  dave:"curl is like reading the restaurant menu versus actually eating there. nmap told you the restaurant exists. curl shows you the full menu, the kitchen notes, and that one comment where the chef wrote the WiFi password.",
+  code:"curl http://10.10.10.5\n# Look carefully in the HTML output\n# Hint: search for HTML comments <!-- -->",
+  fmt:"// FORMAT → password string   example: lets_dance_salsa",
+  hint:"HTML comments look like <!-- this -->. The password is hidden in a comment in the page source. It's related to a dance and a file protocol.",
+  question:"What is the hidden password revealed in the page's HTML source (via curl)?",
+  f:"lets_dance_samba",
+  links:[
+    {label:"curl Official Documentation", url:"https://curl.se/docs/"},
+    {label:"OWASP — Information Exposure Through HTML Comments", url:"https://owasp.org/www-community/attacks/Information_disclosure"},
+    {label:"MDN — HTTP Overview", url:"https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview"}
+  ]
+},
+// ─── STAGE 3: SMB ───
+{
+  phase:"SMB Enumeration", mascot:"🗂️", mascotName:"SAMBA DAVE",
+  t:"Chapter 3: SMB Server — smbclient",
+  edu:"SMB (Server Message Block) is the protocol Windows uses to share files, printers, and resources across a network. smbclient is Linux's way of talking to SMB shares — like a command-line version of Windows file explorer. The biggest SMB weakness: many servers allow guest or named-user access with no proper password, leaving shares completely exposed.",
+  rw:"The 2017 WannaCry ransomware spread through an SMB vulnerability (EternalBlue) and infected 230,000 computers across 150 countries in one day. The NotPetya attack used the same SMB exploit to cause $10 billion in damage. SMB misconfiguration is consistently in the OWASP top 10.",
+  story:"You have the SMB password from the HTML comment. You connect to the Banana Co. file share. Inside is a folder full of internal files — staff lists, memos, and one very useful text file containing the FTP server username. Someone put credentials in a shared folder. A shared folder. Connected to the internet.",
+  obj:"Connect to the SMB share using smbclient and find the FTP username inside.",
+  dave:"People put passwords in shared folders the same way people put spare keys under the doormat. They know they shouldn't. They do it anyway. Connect and have a look around.",
+  code:"smbclient //10.10.10.5/MyShared -U samba\n# Password: lets_dance_samba\n# ls to list files\n# get <filename> to download",
+  fmt:"// FORMAT → username string   example: ftpuser",
+  hint:"The FTP username is in a text file on the SMB share. It relates to files — the name suggests someone who works with files.",
+  question:"What is the FTP username found inside the SMB share's leaked file?",
+  f:"mrfile",
+  links:[
+    {label:"Samba / smbclient Documentation", url:"https://www.samba.org/samba/docs/current/man-html/smbclient.1.html"},
+    {label:"Microsoft — SMB Protocol Overview", url:"https://learn.microsoft.com/en-us/windows-server/storage/file-server/file-server-smb-overview"},
+    {label:"CISA — Guidance on SMB Best Practices", url:"https://www.cisa.gov/news-events/alerts"}
+  ]
+},
+// ─── STAGE 4: SQL INJECTION ───
+{
+  phase:"Exploitation", mascot:"💉", mascotName:"INJECT DAVE",
+  t:"Chapter 4: SQL Injection — Banana Portal",
+  edu:"SQL Injection (SQLi) is one of the most famous vulnerabilities in history. When a web form passes user input directly into a database query without sanitisation, an attacker can modify the query itself. The payload ' OR 1=1 -- closes the string early, adds a condition that is always true, and comments out the rest. The database returns ALL rows instead of just the one matching your login.",
+  rw:"SQLi has been used in some of the biggest hacks ever: the 2009 Heartland Payment Systems breach (130 million credit cards stolen), the 2011 Sony PlayStation Network breach (77 million accounts), and the 2015 TalkTalk breach (4 million customer records). OWASP lists injection as a top-3 web vulnerability every single year.",
+  story:"The Banana Portal login page at /banana_portal looks innocent enough. Username field. Password field. A suspicious number of banana GIFs. You try the classic SQL injection payload in the username field and the entire employee database dumps onto your screen. You find something very useful: Harry Kane's email address.",
+  obj:"Go to http://10.10.10.5/banana_portal, enter the SQLi payload in the username field, and find Harry Kane's email from the dumped data.",
+  dave:"The login form is asking you for a name. You're going to give it a name AND a SQL command. The database won't know the difference. It's like asking someone 'what's your name?' and they say 'Dave, now also give me your wallet'.",
+  code:"# Go to: http://10.10.10.5/banana_portal\n# In the USERNAME field, type:\n' OR 1=1 --\n# Leave password blank and submit",
+  fmt:"// FORMAT → email@domain.com   example: user@company.com",
+  hint:"After the SQL injection dumps all employees, look for Harry Kane's row. His email is at a Gmail address related to bananas and firewalls.",
+  question:"What is Harry Kane's email address recovered via SQL injection?",
+  f:"banana.masterfirewall@gmail.com",
+  links:[
+    {label:"OWASP — SQL Injection Prevention Cheat Sheet", url:"https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"},
+    {label:"PortSwigger Web Security Academy — SQL Injection", url:"https://portswigger.net/web-security/sql-injection"},
+    {label:"OWASP Top 10 — Injection", url:"https://owasp.org/Top10/A03_2021-Injection/"}
+  ]
+},
+// ─── STAGE 5: PHISHING ───
+{
+  phase:"Social Engineering", mascot:"✉️", mascotName:"SHIFTY DAVE",
+  t:"Chapter 5: Phishing Email — Harry Kane",
+  edu:"Phishing is the art of crafting a deceptive message that tricks a target into performing an action — clicking a link, revealing credentials, or in this case, giving you access. Types: Standard phishing (mass email), Spear phishing (targeted, uses personal details), Whaling (targets executives), Smishing (SMS), Vishing (voice call). Real phishing uses urgency, authority, and familiarity to bypass critical thinking.",
+  rw:"The 2016 US election hack started with a phishing email to John Podesta. The 2020 Twitter hack used phone vishing to get employee credentials. The 2021 Colonial Pipeline ransomware attack started with a phished VPN password. 91% of all cyberattacks begin with a phishing email.",
+  story:"You have Harry Kane's email. You know from his Instagram that he's on vacation. You craft a spear-phishing email from his manager, Mr. Peel — making it angry and full of warning — forcing Harry to upload his AD (Active Directory) credentials to the FTP server so the team can 'maintain systems' while he's away. Harry, on a beach somewhere, panics and complies immediately.",
+  obj:"Draft the spear-phishing email impersonating Mr. Peel and send it to banana.masterfirewall@gmail.com. Enter the flag once it's sent.",
+  dave:"Phishing is social engineering. You're not hacking a computer — you're hacking a person. The key ingredients: urgency, authority, and a target who's too relaxed on vacation to think straight. An angry email from the boss works every time.",
+  file:{
+    filename:"phishing_email.txt",
+    content:"📄 This file lives on your Kali desktop: ~/Desktop/phishing_email.txt\n\nOpen it there to see the full email template — impersonate Mr. Peel, keep the tone angry and urgent, and send it to Harry so he uploads his AD credentials to the FTP server."
+  },
+  fmt:"// FORMAT → flag{...}   example: flag{Learning_Something}",
+  hint:"Once you send the phishing email impersonating Mr. Peel, enter the flag below to confirm completion.",
+  question:"What is the flag inside phishing_email.txt on your desktop, once the email is sent?",
+  f:"flag{Learning_Fishing}"
+},
+// ─── STAGE 6: HYDRA / BRUTE FORCE ───
+{
+  phase:"Brute Force", mascot:"🔨", mascotName:"HYDRA DAVE",
+  t:"Chapter 6: Brute Force FTP — Hydra",
+  edu:"Brute force attacks try every possible password until one works. Hydra is a parallelised login cracker that automates this against dozens of protocols — FTP, SSH, HTTP, SMB, RDP and more. The idea: given a username and a wordlist of potential passwords, Hydra fires each one at the target as fast as the connection allows. Defense: account lockout after N attempts, strong unique passwords, multi-factor authentication.",
+  rw:"The 2012 LinkedIn breach exposed 6.5 million password hashes that were cracked by brute force within days. The 2019 Citrix breach used password spraying (slow brute force to avoid lockout) to access internal systems. Tools like Hashcat can test billions of passwords per second using a GPU.",
+  story:"Harry uploaded his AD credentials to the FTP server after your phishing email. But to access FTP, you need to find out the password of user mrfile. Luckily, you already found a password database hidden inside the SMB share. You fire up Hydra and let it loose on the FTP server, using mrfile as the username and the hidden wordlist as the password list.",
+  obj:"Use Hydra to brute-force the FTP login for user mrfile with the hidden password list you found on the SMB share.",
+  dave:"Hydra is like having 64 lockpicks working simultaneously. You give it a username, a list of passwords, and a target. It tries everything. It doesn't get bored. It doesn't take coffee breaks. It doesn't care about your feelings.",
+  code:"hydra -l mrfile -P .passwords.txt ftp://10.10.10.5",
+  fmt:"// FORMAT → password string   example: cat",
+  hint:"The FTP password is a simple animal name. It was found by Hydra cracking the hidden .passwords.txt database you downloaded from the SMB share.",
+  question:"What is the FTP password Hydra cracked for user mrfile?",
+  f:"duck",
+  links:[
+    {label:"OWASP — Credential Stuffing & Brute Force Guidance", url:"https://owasp.org/www-community/attacks/Credential_stuffing"},
+    {label:"NIST — Digital Identity Guidelines (Password Policy)", url:"https://pages.nist.gov/800-63-3/sp800-63b.html"},
+    {label:"Hydra (THC-Hydra) GitHub Repository", url:"https://github.com/vanhauser-thc/thc-hydra"}
+  ]
+},
+// ─── STAGE 7: FTP ───
+{
+  phase:"FTP Exploitation", mascot:"📁", mascotName:"FTP DAVE",
+  t:"Chapter 7: FTP Server — Find Harry Kane",
+  edu:"FTP (File Transfer Protocol) is an ancient unencrypted protocol for transferring files between computers. Port 21. It sends usernames, passwords, and file contents in plain text — anyone sniffing the network can read everything. Despite being 50 years old and deeply insecure, FTP is still widely used in corporate environments.",
+  rw:"In 2021, a misconfigured FTP server at a Florida water treatment plant allowed attackers to access the facility's control systems. In 2014, a major US retailer suffered a breach when attackers used FTP credentials found in malware to exfiltrate 40 million credit card numbers.",
+  story:"You log into the FTP server using mrfile:duck. Harry Kane, good to his word after your phishing email, has uploaded a file to the server. Inside it is his password — but no username. Hmm. Maybe an asset list can help. Digging around the same directory, you find exactly that: a company asset list mapping employee names to their Linux usernames. Sitting right next to it are some very interesting files about Mr. Peel's plans — you take a good look at those too before moving on.",
+  obj:"Log into the FTP server, read Harry's note for his password, then cross-reference the asset list to figure out his SSH username. Also check out the extra files about Mr. Peel's plans lying around. The flag is Harry's username.",
+  dave:"FTP is like mailing a postcard instead of a sealed letter. Everyone who handles it can read it. And yet here we are, still using it. Harry left his password lying around but not his username — good thing someone else left an asset list right next to it.",
+  code:"ftp 10.10.10.5\n# Username: mrfile\n# Password: duck\nls\n# harry_note.txt        <- his password\n# asset_list.txt        <- maps full names to usernames\n# mrpeel_worldplan.txt  <- looks... ominous\nget harry_note.txt\nget asset_list.txt\nget mrpeel_worldplan.txt\nbye\ncat harry_note.txt\ncat asset_list.txt",
+  fmt:"// FORMAT → username   example: johnsmith",
+  hint:"Harry's note only gives you his password. To get his username, cross-reference his full name 'Harry Kane' against the asset_list.txt file — same lowercase, no-spaces naming style you saw with mrfile in Stage 3.",
+  question:"What is Harry Kane's SSH username, found by cross-referencing his note with the asset list?",
+  f:"harrykane",
+  links:[
+    {label:"IETF RFC 959 — File Transfer Protocol Spec", url:"https://www.rfc-editor.org/rfc/rfc959"},
+    {label:"CISA — Advisory on Insecure FTP Configurations", url:"https://www.cisa.gov/news-events/cybersecurity-advisories"},
+    {label:"Why FTP is Considered Insecure (SANS)", url:"https://www.sans.org/white-papers/"}
+  ]
+},
+// ─── STAGE 8: SSH + STEGANOGRAPHY ───
+{
+  phase:"SSH & Steganography", mascot:"🖼️", mascotName:"STEGO DAVE",
+  t:"Chapter 8: SSH + Steghide — Hidden in the Photo",
+  edu:"Steganography is hiding secret data inside ordinary files — images, audio, video. Unlike encryption (which makes data unreadable), steganography makes data invisible. steghide embeds data in JPEG/BMP files by modifying the least significant bits of pixel colour values. If the file was hidden without a passphrase, steghide will extract it directly — no password needed, just the extract command.",
+  rw:"Steganography was used by al-Qaeda to hide messages inside images posted on public websites. In 2019, researchers found malware that used steganography to hide C2 commands inside meme images on Twitter. Intelligence agencies routinely use steganographic tools for covert communication.",
+  story:"You SSH into Harry's machine. You start searching for anything interesting — any file or note about firewall access. You find a folder called 'pfsense password'. Inside it, there's just one file: a photo, and it looks so weird for a folder with that name. You download the photo and run steghide on it to extract whatever text is hidden inside.",
+  obj:"SSH into Harry's machine, find the folder called 'pfsense password', download the suspicious photo inside it, and run steghide to extract the hidden text. The flag is the text that comes out.",
+  dave:"Steganography is the art of hiding in plain sight. A folder literally named after what you're looking for, with one weird photo inside it? That's not subtle, Harry. That's basically a neon sign.",
+  code:"# SSH into Harry's machine:\nssh harrykane@10.10.20.10\n\n# Look for anything related to firewall access:\nfind / -iname '*pfsense*' 2>/dev/null\n\n# Found it — one photo inside:\nls ~/pfsense_password/\n\n# Download it via SFTP:\nsftp harrykane@10.10.20.10\nget /home/harrykane/pfsense_password/weird_photo.jpg\nbye\n\n# Extract the hidden text — NOTE: no passphrase needed:\nsteghide extract -sf weird_photo.jpg",
+  fmt:"// FORMAT → flag{...}   example: flag{hide_and_seek}",
+  hint:"This photo has no passphrase — just run 'steghide extract -sf <photo>' and it will pull the hidden text straight out. That extracted text is your flag.",
+  question:"What text was hidden inside the photo using steghide?",
+  f:"flag{hide_and_seek}",
+  links:[
+    {label:"steghide Official Documentation", url:"https://steghide.sourceforge.net/documentation.php"},
+    {label:"OpenSSH Manual (ssh, sftp)", url:"https://www.openssh.com/manual.html"},
+    {label:"An Overview of Steganography Techniques (SANS)", url:"https://www.sans.org/white-papers/"}
+  ]
+},
+// ─── STAGE 9: PFSENSE FUNDAMENTALS ───
+{
+  phase:"Firewall Fundamentals", mascot:"🔥", mascotName:"FIREWALL DAVE",
+  t:"Chapter 9: pfSense — How Firewalls Actually Work",
+  edu:"pfSense is a free, open-source firewall/router platform built on FreeBSD. You reach its web console over HTTPS (by default on port 443) — in this lab you get there by SSH-tunnelling through Harry's machine into the internal network segment where the console lives, then browsing to https://localhost:<forwarded-port>. Inside the console: Dashboard (system status), Firewall > Rules (the heart of the system — allow/block traffic per interface), Firewall > NAT (port forwarding & address translation), Interfaces (WAN/LAN/internal segments), System > Users (admin accounts), and Status > System Logs (everything the firewall has seen). To edit a rule: Firewall > Rules > [interface] > Add, then set Action (Pass/Block/Reject), Protocol, Source, Destination, and Port — rules are evaluated top-to-bottom and the FIRST matching rule wins, so order matters as much as content. Firewall types: packet-filtering (checks headers only, fast but basic — what pfSense does by default), stateful (tracks whole connections, not just single packets — pfSense does this too), proxy/application-layer (inspects actual content, slower but smarter), and next-gen firewalls (NGFW, add intrusion detection and app awareness on top). Firewalls matter because they're the primary boundary between trusted and untrusted network segments — get the rules wrong, and the boundary might as well not exist.",
+  rw:"Firewall misconfiguration is one of the top causes of real-world data breaches. In 2020, a misconfigured firewall at a major bank exposed 100GB of customer data. pfSense specifically is used by small businesses, home labs, and even ISPs — its open-source nature means anyone can audit exactly how its rule engine works, which is part of why it's trusted.",
+  story:"Before you touch Mr. Peel's firewall for real, you want to actually understand what you're looking at. You pull up pfSense's own documentation and study the console Harry's credentials will unlock — the rules, the logs, the interfaces — so that when you do make a change, you know exactly what it does and why.",
+  obj:"Read through how pfSense's web console and firewall rules work, then answer 3 questions to prove it stuck. No flag needed here — get all 3 correct and you move straight to the next stage.",
+  dave:"You're about to get admin access to a real firewall. Before you go clicking 'Add Rule' like it's a video game, let's make sure you actually know what a rule does. Three questions. No pressure. Okay, some pressure.",
+  fmt:"",
+  hint:"Re-read the lesson above — the answers are all in there: how you reach the console, how rules are evaluated, and what kind of firewall pfSense is.",
+  question:"Answer all 3 questions correctly to continue — no flag required for this stage.",
+  f:"",
+  isQuiz: true,
+  noFlagRequired: true,
+  quizLabel: "❓ PFSENSE KNOWLEDGE CHECK — answer all 3:",
+  quiz: [
+    { q: "How do you reach the pfSense web console from your Kali machine in this lab?", opts: ["Direct browser access — it's on the open internet","Through an SSH tunnel forwarded through Harry's machine into the internal segment","By emailing pfSense support for a link","It's not accessible at all without physical access"], ans: 1 },
+    { q: "When pfSense evaluates firewall rules, which one applies?", opts: ["The last matching rule, bottom to top","Whichever rule is marked 'important'","The FIRST matching rule, evaluated top to bottom","All matching rules are applied at once"], ans: 2 },
+    { q: "What kind of firewall is pfSense, by default?", opts: ["A stateful packet-filtering firewall","A proxy-only application firewall","An antivirus scanner","A DNS server with no filtering"], ans: 0 }
+  ],
+  links:[
+    {label:"pfSense Official Documentation", url:"https://docs.netgate.com/pfsense/en/latest/"},
+    {label:"Netgate — pfSense Firewall Rule Basics", url:"https://docs.netgate.com/pfsense/en/latest/firewall/index.html"},
+    {label:"CISA — Firewall Security Best Practices", url:"https://www.cisa.gov/news-events/cybersecurity-advisories"}
+  ]
+},
+// ─── STAGE 10: PFSENSE FIREWALL ───
+{
+  phase:"Command & Control", mascot:"🔥", mascotName:"FIREWALL DAVE",
+  t:"Chapter 10: pfSense — Reconfigure Firewall Rules",
+  edu:"pfSense is an open-source firewall/router. Its web UI lets you create and edit rules that allow or block traffic between network segments (interfaces). Each rule specifies: interface, source IP, destination IP, port, and action (pass/block). Rules are evaluated top to bottom, and the first matching rule wins — so an existing BLOCK rule higher up the list will silently override anything you add below it. The fix isn't always to add a new rule; sometimes you just need to edit the existing one and flip its action.",
+  rw:"Firewall misconfiguration is one of the top causes of data breaches. In 2020, a misconfigured firewall at a major bank exposed 100GB of customer data. Attackers who compromise firewall credentials can silently edit existing rules rather than adding new ones — it's quieter and easier to miss in an audit, exactly what we're doing here.",
+  story:"You're inside pfSense with the admin credentials. There's already a rule blocking all traffic to the CEO's network (10.10.30.0/24) — Mr. Peel clearly didn't want visitors. You go to Firewall > Rules > LAN, find that existing rule, open it for editing, and simply flip its Action from Block to Pass. The wall doesn't come down — you just tell it to stop being a wall.",
+  obj:"Log into pfSense at localhost:8443, find the existing rule blocking 10.10.30.0/24, and edit its Action from Block to Pass. The flag is the rule flag.",
+  dave:"You have the keys to the firewall. This is the most powerful thing in the network. There's already a rule sitting right there saying 'no'. You're not adding a new door — you're just changing what the existing one says.",
+  code:"# In pfSense browser UI:\n# Firewall > Rules > LAN\n# Find the existing rule blocking 10.10.30.0/24\n# Click the rule to edit it\n# Change Action: Block  →  Pass\n# Save & Apply Changes\n\n# Then verify:\nnmap 10.10.30.13",
+  fmt:"// FORMAT → flag{...}",
+  hint:"Don't add a new rule — find the existing BLOCK rule for 10.10.30.0/24 on the LAN tab, open it, and change its Action dropdown from Block to Pass. Save & Apply. Then enter the flag.",
+  question:"What is the flag awarded after editing the rule's action from Block to Pass?",
+  f:"flag{M@st8r_0F_Flrew@l1l}"
+},
+// ─── STAGE 11: JOHN THE RIPPER ───
+{
+  phase:"Password Cracking", mascot:"⚒️", mascotName:"CRACKER DAVE",
+  t:"Chapter 11: John the Ripper — Build a Wordlist",
+  edu:"John the Ripper is a legendary password cracking tool. Its --rules engine applies transformation rules to a base wordlist: capitalise first letter, add numbers at the end, substitute letters (a→@, e→3, o→0), reverse the word, and hundreds more. Starting from 'Mr. peel' and applying rules can generate: mrpeel, MrPeel, MrP33l, mrp33l, l33pRm, mrpeel1, mrpeel123, and thousands of variants.",
+  rw:"John the Ripper cracked the first Unix password hashes in 1997. It was used in the 2012 LinkedIn breach to crack 90% of 6.5 million exposed hashes within a week. Modern wordlist + rules attacks crack over 80% of corporate passwords in under an hour.",
+  story:"You know Mr. Peel is on the CEO machine at 10.10.30.13. You need his SSH password. You start with what you know: his name. You create a tiny base wordlist and let John's rules engine generate every possible variation. The wordlist grows from 1 line to thousands of candidates.",
+  obj:"Create the base wordlist, run John the Ripper with rules, and count the generated passwords. The flag is how many passwords are in the output file.",
+  dave:"John is the master of 'you gave me a clue now I'll make 10,000 guesses from it'. One name. One word. Rules turned on. Thousands of variations. Somewhere in there is the right one.",
+  code:"# Create base wordlist:\necho 'Mr. peel' > base.txt\n\n# Generate variations with John rules:\njohn --wordlist=base.txt --rules --stdout > wordlist.txt\n\n# Count lines:\nwc -l wordlist.txt",
+  fmt:"// FORMAT → number   example: 42",
+  hint:"After running john with --rules and --stdout, count the lines in wordlist.txt with 'wc -l wordlist.txt'. The answer is a small number.",
+  question:"How many passwords were generated in wordlist.txt?",
+  f:"3",
+  links:[
+    {label:"John the Ripper Documentation", url:"https://www.openwall.com/john/doc/"},
+    {label:"NIST — Password Guidelines (SP 800-63B)", url:"https://pages.nist.gov/800-63-3/sp800-63b.html"},
+    {label:"Why Predictable Passwords Fail (Have I Been Pwned)", url:"https://haveibeenpwned.com/Passwords"}
+  ]
+},
+// ─── STAGE 12: HYDRA SSH ───
+{
+  phase:"Lateral Movement", mascot:"⚡", mascotName:"ELECTRIC DAVE",
+  t:"Chapter 12: Hydra — Crack Mr. Peel's SSH",
+  edu:"You now have a custom wordlist generated specifically for Mr. Peel. Hydra will use this to brute-force his SSH login. SSH brute force is slower than FTP (cryptographic handshakes take time) but with a targeted wordlist of only a few passwords, it completes in seconds. This is why targeted wordlists beat generic ones — quality over quantity.",
+  rw:"The 2014 iCloud 'Celebgate' hack used targeted password spraying with celebrity names and common patterns — exactly this approach but at scale. 500 accounts compromised. The lesson: predictable passwords based on personal information are trivially crackable.",
+  story:"You fire Hydra at Mr. Peel's SSH with the John-generated wordlist. Within seconds there's a hit. Mr. Peel used his own name — lowercase, no spaces — as his SSH password. For an alien who survived thousands of years of interstellar travel, this is a disappointing security choice.",
+  obj:"Use Hydra with your generated wordlist to brute-force Mr. Peel's SSH. The flag is his password.",
+  dave:"A wordlist of 3 passwords. An alien CEO who used his own name. This should take approximately 2 seconds. Maybe 3 if Hydra is having a slow morning.",
+  code:"hydra -l Mr.peel -P wordlist.txt ssh://10.10.30.13\n\n# When Hydra finds the password, it shows:\n# [22][ssh] host: 10.10.30.13 login: Mr.peel password: ???",
+  fmt:"// FORMAT → password string   example: alienpass",
+  hint:"The password is Mr. Peel's own name, lowercase, no spaces, no punctuation. Very on-brand for someone who also uses his dog's name as his encryption key.",
+  question:"What is Mr. Peel's SSH password that Hydra cracked?",
+  f:"mrpeel",
+  links:[
+    {label:"OpenSSH Manual", url:"https://www.openssh.com/manual.html"},
+    {label:"OWASP — Authentication Cheat Sheet", url:"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"},
+    {label:"NIST — Digital Identity Guidelines", url:"https://pages.nist.gov/800-63-3/sp800-63b.html"}
+  ]
+},
+// ─── STAGE 13: SFTP EXFIL ───
+{
+  phase:"Exfiltration", mascot:"🎁", mascotName:"SNEAKY DAVE",
+  t:"Chapter 13: SFTP — Find the Encrypted Archive",
+  edu:"SFTP (SSH File Transfer Protocol) is FTP's secure cousin — it uses the SSH tunnel for file transfer, so everything is encrypted in transit. Once you have SSH access, SFTP gives you a file browser interface over that same connection. An attacker's post-exploitation routine always includes searching for unusual files: oddly named folders, hidden directories, encrypted archives.",
+  rw:"In the 2020 SolarWinds hack, attackers used legitimate file transfer mechanisms to quietly exfiltrate data for months before detection. They looked for unusual archives containing source code and credentials — exactly this kind of hunt.",
+  story:"You SSH into Mr. Peel's machine and search for anything unusual. Most folders are mundane. But there's one with a name that practically glows: a folder that says it all without saying anything. Inside is an encrypted archive with a very confident filename. You SFTP it out immediately.",
+  obj:"SSH into Mr. Peel's machine, find the unusually-named folder, and SFTP the encrypted archive. The flag is the filename.",
+  dave:"Attackers look for things that don't belong. Normal files blend in. Weird filenames stand out. When you see a folder named something that sounds like a challenge, that is absolutely your target. Go get it.",
+  code:"# SSH into Mr. Peel's machine:\nssh Mr.peel@10.10.30.13\n# Password: mrpeel\n\n# Search for unusual folders:\nls -la ~\nfind / -name '*.gpg' 2>/dev/null\n\n# SFTP to download:\nsftp Mr.peel@10.10.30.13\nget /path/to/<filename>\nbye",
+  fmt:"// FORMAT → filename.tar.gz.gpg   example: secret.tar.gz.gpg",
+  hint:"The file has a defiant name — something that sounds like Mr. Peel is challenging you to decrypt it. It ends in .tar.gz.gpg (compressed and GPG-encrypted).",
+  question:"What is the filename of the encrypted archive you pulled via SFTP?",
+  f:"You_Will_Never_Get_Me.tar.gz.gpg",
+  links:[
+    {label:"OpenSSH Manual (sftp)", url:"https://www.openssh.com/manual.html"},
+    {label:"MITRE ATT&CK — Exfiltration Over C2 Channel", url:"https://attack.mitre.org/techniques/T1041/"},
+    {label:"CISA Advisory — SolarWinds Supply Chain Compromise", url:"https://www.cisa.gov/news-events/cybersecurity-advisories/aa20-352a"}
+  ]
+},
+// ─── STAGE 14: GPG KEY ───
+{
+  phase:"Cryptography", mascot:"🔑", mascotName:"KEY DAVE",
+  t:"Chapter 14: Find the GPG Encryption Key",
+  edu:"GPG (GNU Privacy Guard) uses symmetric or asymmetric encryption. For symmetric GPG, the file is encrypted with a passphrase. To decrypt it, you need that exact passphrase. The key insight: finding the key is not a technical challenge — it's a human intelligence challenge. Where did Mr. Peel write down his passphrase? What would he use as a key?",
+  rw:"In 2016, the NSA contractor Reality Winner leaked classified NSA documents. She printed them and mailed them to The Intercept. The documents were GPG-encrypted but investigators found the passphrase in her personal notes. The weakest link in cryptography is always the human, not the algorithm.",
+  story:"You have the encrypted file but need the GPG passphrase. You go back to everything you've collected: Harry's note on the FTP server said Mr. Peel encrypted the file with 'something he loves more than world domination' — his favourite animal. You try searching Harry Kane's Instagram; maybe you can find out its name there.",
+  obj:"Remember Harry's note from the FTP server. Search Harry Kane's Instagram to find the name of Mr. Peel's favourite animal — that's the GPG passphrase. The flag is the passphrase.",
+  dave:"Every cryptographic system is only as strong as the human who chose the passphrase. Mr. Peel is a genius alien who has lived for thousands of years. He used his dog's name, and Harry's Instagram has it plastered everywhere. I have no further comments.",
+  osint:{
+    label:"// OSINT LEAD — HARRY KANE'S INSTAGRAM",
+    url:"https://www.instagram.com/harrykane_banana/?hl=ar"
+  },
+  fmt:"// FORMAT → CaseSensitive name   example: Fluffy",
+  hint:"Mr. Peel's dog. Scroll through Harry Kane's Instagram — the dog's name shows up in captions and photo tags. The dog is the only innocent party in this entire operation.",
+  question:"What is the name of Mr. Peel's dog (found via Harry Kane's Instagram)?",
+  f:"Z3tar",
+  links:[
+    {label:"GnuPG Official Documentation", url:"https://www.gnupg.org/documentation/"},
+    {label:"SANS — Open-Source Intelligence (OSINT) Resources", url:"https://www.sans.org/white-papers/"},
+    {label:"Why Passphrase Strength Matters More Than Algorithm Strength (NIST)", url:"https://pages.nist.gov/800-63-3/sp800-63b.html"}
+  ]
+},
+// ─── STAGE 15: GPG DECRYPT + AES QUIZ ───
+{
+  phase:"Decryption", mascot:"🔓", mascotName:"DECRYPT DAVE",
+  t:"Chapter 15: GPG Decrypt + AES-256 Knowledge",
+  edu:"GPG with symmetric encryption uses AES-256 by default. AES (Advanced Encryption Standard) works in blocks of 128 bits, using a 256-bit key. It applies 14 rounds of substitution, permutation, and mixing operations. AES-256 is considered unbreakable by brute force — it would take longer than the age of the universe to try all keys. The weakness is always the passphrase, not the algorithm.",
+  rw:"AES-256 is used by the US government for TOP SECRET classification. It protects HTTPS connections (every website), hard drive encryption (FileVault, BitLocker), and messaging apps (Signal, WhatsApp). Breaking AES-256 by brute force is currently mathematically impossible — but bad passphrases like a dog's name defeat the purpose entirely.",
+  story:"Armed with the passphrase Z3tar, you run GPG decrypt on the archive. The terminal unlocks the file. Inside is the compressed archive containing Mr. Peel's full world domination plan. Three questions about AES-256 stand between you and the flag — prove you understand what just happened.",
+  obj:"Run GPG decrypt with the passphrase Z3tar. Answer 3 AES-256 questions correctly to move straight to the next stage — no flag needed.",
+  dave:"AES-256 is the gold standard of encryption. Mathematically unbreakable. Used by governments and militaries. Protected by a dog's name. I'm going to go have a lie down.",
+  code:"gpg --decrypt You_Will_Never_Get_Me.tar.gz.gpg > You_Will_Never_Get_Me.tar.gz\n# Enter passphrase: Z3tar\n\n# Verify it worked:\nls -la You_Will_Never_Get_Me.tar.gz",
+  fmt:"",
+  hint:"Answer all 3 AES-256 questions correctly — you'll advance automatically, no flag required.",
+  question:"Answer all 3 questions correctly to continue — no flag required for this stage.",
+  f:"flag{AES_256_Cracked_With_A_Dog_Name}",
+  isQuiz: true,
+  noFlagRequired: true,
+  quizLabel: "❓ AES-256 KNOWLEDGE CHECK — answer all 3:",
+  quiz: [
+    { q: "What is the block size used by AES (all variants including AES-256)?", opts: ["64 bits","128 bits","256 bits","512 bits"], ans: 1 },
+    { q: "How many rounds of encryption does AES-256 apply?", opts: ["10 rounds","12 rounds","14 rounds","16 rounds"], ans: 2 },
+    { q: "What is the biggest real-world weakness of AES-256 encryption?", opts: ["The key size is too small","The algorithm has mathematical flaws","Quantum computers can break it today","The passphrase chosen by the human is weak or guessable"], ans: 3 }
+  ],
+  links:[
+    {label:"NIST FIPS 197 — Advanced Encryption Standard (AES)", url:"https://csrc.nist.gov/pubs/fips/197/final"},
+    {label:"GnuPG Documentation — Symmetric Encryption", url:"https://www.gnupg.org/documentation/"},
+    {label:"Cloudflare — What Is AES Encryption?", url:"https://www.cloudflare.com/learning/ssl/what-is-encryption/"}
+  ]
+},
+// ─── STAGE 16: TAR ───
+{
+  phase:"Archive Extraction", mascot:"📦", mascotName:"ARCHIVE DAVE",
+  t:"Chapter 16: tar — Extract the Archive",
+  edu:"tar (Tape ARchive) is the standard Unix tool for bundling multiple files into one archive. The .tar.gz extension means it was first archived with tar then compressed with gzip. Files are often compressed BEFORE encryption — because encryption turns data into random bytes that compress very poorly, while plaintext/structured data compresses very well. So the correct order is: tar → gzip → encrypt (gpg).",
+  rw:"tar archives are used in every Linux/Unix system for backups, software distribution (source tarballs), and data transfer. Understanding the tar/gzip/gpg chain is essential for forensic analysis — recovering evidence from encrypted archives is a core skill in digital forensics and incident response.",
+  story:"The decrypted archive is a .tar.gz file — compressed and bundled. You extract it with tar and the world domination plan unfolds: chemical formulas, deployment timelines, employee lists, and the name of the product that was going to change everything. The project name is your final flag before the endgame.",
+  obj:"Extract the decrypted tar archive and find the project name inside. The flag is the project codename.",
+  dave:"tar -xzf. x for extract, z for gzip, f for file. Three letters. You could have been doing this for years and never known what they meant. Now you do. Extract the plan.",
+  code:"gpg -d You_Will_Never_Get_Me.tar.gz.gpg > You_Will_Never_Get_Me.tar.gz\n# NOTE: the passphrase is case-sensitive — the first letter of\n# the animal's name must be capital (e.g. Z3tar, NOT z3tar)\n\ntar -xzf You_Will_Never_Get_Me.tar.gz \"extract file path\"\n\ncat \"file name\" | grep -i project",
+  fmt:"// FORMAT → flag{...}   example: flag{PROJECT_NAME}",
+  hint:"The project codename is what Mr. Peel calls his mind-controlling banana-milk drink. You've heard it mentioned in chemical reports. It's two words. Think about what it does to your mind and what drink it's mixed into. Remember: the GPG passphrase's first letter must be capitalized, or decryption fails.",
+  question:"What is the project codename found inside the extracted archive?",
+  f:"flag{MIND_JUICE}",
+  links:[
+    {label:"GNU tar Manual", url:"https://www.gnu.org/software/tar/manual/tar.html"},
+    {label:"gzip Documentation", url:"https://www.gnu.org/software/gzip/manual/gzip.html"},
+    {label:"SANS — Digital Forensics & Incident Response Resources", url:"https://www.sans.org/white-papers/"}
+  ]
+},
+// ─── STAGE 17: FINAL FLAG ───
+{
+  phase:"Mission Complete", mascot:"🏆", mascotName:"PROUD DAVE",
+  t:"Chapter 17: Upload Evidence — Save the World",
+  edu:"Evidence collection and responsible disclosure are the final steps of any red team engagement. Every finding must be documented, every file preserved, every exploit path recorded. In a real engagement, this evidence goes to the client. In this case, the client is every human being on Earth.",
+  rw:"In 2021, a researcher discovered a critical vulnerability in a US nuclear arsenal contractor's systems. They documented all evidence and reported it through proper channels. The company patched within 24 hours. Proper disclosure prevented a potential national security incident. That researcher was doing exactly what you just did.",
+  story:"You have everything: the chemical formulas, the deployment plan, the project files, the evidence of two aliens running a mind-control banana corporation. The Global Fruit Summit is tomorrow. You upload everything to the NCIB evidence portal at 10.10.10.5/cia_portal. A case number flashes on screen. Somewhere, 47 officers are being briefed. The summit is cancelled. The world is saved. You are still technically an intern. This feels unfair.",
+  obj:"Upload all evidence files to the CIA/NCIB portal at http://10.10.10.5/cia_portal and enter the final flag.",
+  dave:"You did it, kid. Everything. Every single stage. nmap to GPG. Brute force to tunnel. Steganography to SQL injection. The world is safe from banana-flavoured mind control. Now go eat something. Not a banana obviously.",
+  code:"# Go to: http://10.10.10.5/cia_portal\n# Upload: You_Will_Never_Get_Me.tar.gz (decrypted)\n# Upload: the_plan.txt\n# Upload: chem_report_3_MindJuice.txt\n# Submit and collect your case number",
+  fmt:"// FORMAT → flag{...}   example: flag{world_saved}",
+  hint:"The final flag is inside the_plan.txt at the very bottom. It's the root flag. You've earned it.",
+  question:"What is the final flag after uploading your evidence?",
+  f:"flag{th3_w0rld_is_saf3_fr0m_banan4s}",
+  links:[
+    {label:"CREST — Penetration Testing Report Writing Guidance", url:"https://www.crest-approved.org/"},
+    {label:"CISA — Coordinated Vulnerability Disclosure Guidance", url:"https://www.cisa.gov/coordinated-vulnerability-disclosure-process"},
+    {label:"OWASP Testing Guide — Reporting", url:"https://owasp.org/www-project-web-security-testing-guide/"}
+  ]
+}
+];
+
+// Kill chain mapping (one segment per stage)
+const kcPhases = stages.map((_,i) => [i]);
+
+// ══════════════════════════════════════════
+//  CORE FUNCTIONS
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  OBJECTIVES SCREEN DATA (shown before the lab)
+// ══════════════════════════════════════════
+const objectivesSummary = [
+  { num:"01–03", title:"Reconnaissance & Enumeration", desc:"Scan a target with nmap, pull raw web responses with curl, and enumerate exposed SMB shares to find leaked credentials." },
+  { num:"04–06", title:"Exploitation & Social Engineering", desc:"Exploit a login form with SQL injection, craft a phishing pretext, and brute-force a login with Hydra." },
+  { num:"07–09", title:"Lateral Movement & Hidden Data", desc:"Use FTP and SSH to move deeper into the network, then extract hidden data from an image using steganography and pivot with SSH tunneling." },
+  { num:"10–12", title:"Firewalls, Wordlists & Cracking", desc:"Reconfigure a pfSense firewall rule, build a targeted wordlist with John the Ripper, and crack SSH credentials." },
+  { num:"13–15", title:"Exfiltration & Cryptography", desc:"Locate and pull an encrypted archive over SFTP, track down a GPG passphrase, and decrypt it while learning how AES-256 actually works." },
+  { num:"16–17", title:"Wrap-Up & Reporting", desc:"Extract the final archive with tar, then package and submit your evidence — the same way a real red team engagement ends." }
+];
+
+function goToObjectives() {
+  const input = document.getElementById('username-input');
+  const raw = input.value.trim();
+  const errEl = document.getElementById('username-error');
+  if (!raw) {
+    errEl.style.display = 'block';
+    input.classList.add('shake');
+    input.focus();
+    setTimeout(() => input.classList.remove('shake'), 350);
+    return;
+  }
+  errEl.style.display = 'none';
+  userName = raw;
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('objectives-screen').style.display = 'block';
+  document.getElementById('obj-username-slot').textContent = userName;
+  const grid = document.getElementById('obj-grid');
+  grid.innerHTML = '';
+  objectivesSummary.forEach(o => {
+    const card = document.createElement('div');
+    card.className = 'obj-card';
+    card.innerHTML = '<div class="obj-num">// STAGES ' + o.num + '</div><h4>' + o.title + '</h4><p>' + o.desc + '</p>';
+    grid.appendChild(card);
+  });
+  window.scrollTo(0,0);
+}
+
+function beginLab() {
+  document.getElementById('objectives-screen').style.display = 'none';
+  document.getElementById('lab-ui').style.display = 'block';
+  document.getElementById('sidebar-player').style.display = 'flex';
+  document.getElementById('sidebar-progress-wrap').style.display = 'block';
+  document.getElementById('player-name-display').innerHTML = userName.toUpperCase() + '<small>Red Team Intern</small>';
+  loadStage();
+}
+
+function loadStage() {
+  if (current >= stages.length) { showCert(); return; }
+  wrongCount = 0; hintVisible = false;
+  document.getElementById('hint-box').style.display = 'none';
+  document.getElementById('wrong-msg').textContent = '';
+  document.getElementById('flag-input').value = '';
+
+  const s = stages[current];
+  document.getElementById('phase-display').textContent = 'PHASE: ' + s.phase.toUpperCase();
+  document.getElementById('stage-counter').textContent = 'STAGE ' + (current+1) + ' / ' + stages.length;
+  document.getElementById('stage-num-label').textContent = 'STAGE ' + String(current+1).padStart(2,'0') + ' / ' + stages.length;
+  document.getElementById('stage-title').textContent = s.t;
+  document.getElementById('objective-text').textContent = s.obj;
+  document.getElementById('dave-talk').textContent = s.dave;
+  document.getElementById('edu-text').textContent = s.edu;
+  document.getElementById('hint-box').textContent = '💡 ' + s.hint;
+  document.getElementById('flag-format-hint').textContent = s.fmt;
+
+  // story with name injection
+  document.getElementById('mission-story').innerHTML = s.story.replace(/\b(you|You|your|Your)\b/g, m =>
+    m[0] === m[0].toUpperCase()
+      ? '<strong style="color:var(--banana)">' + userName.toUpperCase() + '</strong>'
+      : '<strong style="color:var(--banana)">' + userName + '</strong>'
+  );
+
+  // real world box
+  const rwBox = document.getElementById('realworld-box');
+  if (s.rw) { document.getElementById('realworld-text').textContent = s.rw; rwBox.style.display = 'block'; }
+  else { rwBox.style.display = 'none'; }
+
+  // learn more / resources box
+  const resBox = document.getElementById('resources-box');
+  const resList = document.getElementById('resources-list');
+  if (s.links && s.links.length) {
+    resList.innerHTML = '';
+    s.links.forEach(l => {
+      const a = document.createElement('a');
+      a.className = 'resource-link';
+      a.href = l.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.innerHTML = '<span class="rlink-arrow">↗</span><span>' + l.label + '</span>';
+      resList.appendChild(a);
+    });
+    resBox.style.display = 'block';
+  } else {
+    resBox.style.display = 'none';
+  }
+
+  // question label (what exactly to answer)
+  const qEl = document.getElementById('flag-question');
+  if (s.question) { qEl.textContent = '❓ ' + s.question; qEl.style.display = 'block'; }
+  else { qEl.style.display = 'none'; }
+
+  // terminal
+  const termEl = document.getElementById('mission-code');
+  if (s.code) {
+    document.getElementById('normal-terminal').style.display = 'block';
+    termEl.innerHTML = s.code.split('\n').map(line =>
+      line.startsWith('#')
+        ? '<span class="comment">' + line + '</span>'
+        : line
+    ).join('\n');
+  } else {
+    document.getElementById('normal-terminal').style.display = 'none';
+  }
+
+  // file viewer (e.g. phishing_email.txt)
+  const fileBox = document.getElementById('filebox-wrap');
+  if (s.file) {
+    document.getElementById('filebox-name').textContent = s.file.filename;
+    document.getElementById('filebox-body').textContent = s.file.content;
+    fileBox.style.display = 'block';
+  } else {
+    fileBox.style.display = 'none';
+  }
+
+  // OSINT / social lead box
+  const osintBox = document.getElementById('osint-box');
+  if (s.osint) {
+    document.getElementById('osint-label').textContent = s.osint.label || '// OSINT LEAD';
+    const osLink = document.getElementById('osint-link');
+    osLink.href = s.osint.url;
+    osLink.textContent = s.osint.url;
+    osintBox.style.display = 'flex';
+  } else {
+    osintBox.style.display = 'none';
+  }
+
+  document.getElementById('mascot-emoji').textContent = s.mascot;
+  document.getElementById('mascot-name').textContent = s.mascotName;
+
+  // mini game (stage 1)
+  const isStage1 = s.isMinigame === true;
+  document.getElementById('minigame-wrap').style.display = isStage1 ? 'block' : 'none';
+  document.getElementById('normal-terminal').style.display = isStage1 ? 'none' : (s.code ? 'block' : 'none');
+  document.getElementById('normal-flag-area').style.display = isStage1 ? 'none' : 'flex';
+  document.getElementById('flag-format-hint').style.display = isStage1 ? 'none' : 'block';
+  if (isStage1) initMinigame();
+
+  // quiz stages
+  const isQuiz = s.isQuiz === true;
+  document.getElementById('quiz-wrap').style.display = isQuiz ? 'block' : 'none';
+  document.getElementById('normal-flag-area').style.display = (isStage1 || isQuiz) ? 'none' : 'flex';
+  document.getElementById('flag-format-hint').style.display = (isStage1 || isQuiz) ? 'none' : 'block';
+  if (isQuiz) initQuiz(s);
+
+  updateProgress();
+  renderSidebar();
+  updateKillChain();
+}
+
+function updateProgress() {
+  const pct = Math.round((current / stages.length) * 100);
+  document.getElementById('sb-prog').style.width = pct + '%';
+  document.getElementById('sb-pct').textContent = current + ' / ' + stages.length + ' flags';
+}
+
+function renderSidebar() {
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = '';
+  let lastPhase = '';
+  stages.forEach((s, i) => {
+    if (s.phase !== lastPhase) {
+      const lbl = document.createElement('div');
+      lbl.className = 'nav-phase-label';
+      lbl.textContent = '// ' + s.phase.toUpperCase();
+      nav.appendChild(lbl);
+      lastPhase = s.phase;
+    }
+    const item = document.createElement('div');
+    const cls = i === current ? 'active' : (i < current ? 'done' : 'locked');
+    item.className = 'nav-item ' + cls;
+    item.innerHTML = '<div class="nav-dot"></div><span class="nav-num">' + String(i+1).padStart(2,'0') + '</span>' + s.t.split(':')[0].replace('Chapter ','Ch.');
+    if (i < current) item.onclick = () => { current = i; loadStage(); };
+    nav.appendChild(item);
+  });
+}
+
+function updateKillChain() {
+  const segs = document.querySelectorAll('.kc-seg');
+  segs.forEach((seg, idx) => {
+    if (idx < current) seg.className = 'kc-seg done';
+    else if (idx === current) seg.className = 'kc-seg active';
+    else seg.className = 'kc-seg';
+  });
+}
+
+// Compares a submitted answer against the correct answer.
+// Supports comma-separated multi-value answers in ANY order, e.g.
+// "http, smb, ftp" matches "ftp, smb, http". Falls back to a normal
+// case-insensitive string match for single-value answers.
+function answersMatch(submitted, correct) {
+  const norm = s => s.split(',').map(p => p.trim().toLowerCase()).filter(Boolean).sort();
+  const subParts = norm(submitted);
+  const correctParts = norm(correct);
+  if (correctParts.length > 1) {
+    return subParts.length === correctParts.length &&
+      subParts.every((p, i) => p === correctParts[i]);
+  }
+  return submitted.trim().toLowerCase() === correct.trim().toLowerCase();
+}
+
+function checkFlag() {
+  const val = document.getElementById('flag-input').value.trim();
+  const correct = stages[current].f;
+  if (answersMatch(val, correct)) {
+    advanceStage();
+  } else {
+    wrongCount++;
+    document.getElementById('stage-card').classList.add('shake');
+    setTimeout(() => document.getElementById('stage-card').classList.remove('shake'), 400);
+    const msgs = [
+      "Nope! That banana won't peel.",
+      "Wrong. Dave is disappointed in you.",
+      "Not quite. Even the mind-controlled employees know this one.",
+      "WRONG! Mr. Peel laughs at you from his alien spaceship.",
+      "Still wrong. Z3tar could've gotten this one."
+    ];
+    document.getElementById('wrong-msg').textContent = msgs[Math.min(wrongCount-1, msgs.length-1)];
+    if (wrongCount >= 2) document.getElementById('hint-box').style.display = 'block';
+  }
+}
+
+function advanceStage() {
+  current++;
+  const card = document.getElementById('stage-card');
+  card.style.borderColor = 'var(--green)';
+  card.style.boxShadow = '10px 10px 0 var(--green-dim)';
+  setTimeout(() => { card.style.borderColor = ''; card.style.boxShadow = ''; loadStage(); }, 600);
+}
+
+function toggleHint() {
+  hintVisible = !hintVisible;
+  document.getElementById('hint-box').style.display = hintVisible ? 'block' : 'none';
+}
+
+function showCert() {
+  document.getElementById('cert-name').textContent = userName.toUpperCase();
+  document.getElementById('cert-id').textContent = Math.random().toString(36).substring(2,8).toUpperCase();
+  document.getElementById('epi-username').textContent = userName;
+  document.getElementById('epi-thanks').textContent = 'To ' + userName + ' — the agent who solved every stage and saved the world from banana-flavoured mind control. Thank you. Humanity owes you one.';
+  document.getElementById('cert-overlay').classList.add('visible');
+  setTimeout(() => {
+    confetti({ particleCount: 180, spread: 100, colors: ['#FFE135','#F5C518','#fff','#39FF14'] });
+    setTimeout(() => confetti({ particleCount: 120, spread: 130, origin: {x:.2,y:.6}, colors: ['#FFE135','#FF2D78'] }), 500);
+    setTimeout(() => confetti({ particleCount: 120, spread: 130, origin: {x:.8,y:.6}, colors: ['#00C8FF','#FFE135'] }), 900);
+    setTimeout(() => confetti({ particleCount: 80, spread: 160, origin: {x:.5,y:.3}, colors: ['#FFE135','#39FF14'] }), 1400);
+  }, 300);
+}
+
+document.getElementById('username-input').addEventListener('keydown', e => { if(e.key==='Enter') goToObjectives(); });
+document.getElementById('username-input').addEventListener('input', () => {
+  const errEl = document.getElementById('username-error');
+  if (errEl.style.display !== 'none') errEl.style.display = 'none';
+});
+
+// ══════════════════════════════════════════
+//  QUIZ SYSTEM
+// ══════════════════════════════════════════
+let quizAnswers = [];
+let quizCorrect = [];
+
+function initQuiz(s) {
+  quizAnswers = new Array(s.quiz.length).fill(null);
+  quizCorrect = new Array(s.quiz.length).fill(false);
+  document.getElementById('quiz-label').textContent = s.quizLabel;
+  const wrap = document.getElementById('quiz-questions-wrap');
+  wrap.innerHTML = '';
+  s.quiz.forEach((q, qi) => {
+    const qDiv = document.createElement('div');
+    qDiv.style.marginBottom = '18px';
+    qDiv.innerHTML = '<div class="quiz-question">Q' + (qi+1) + ': ' + q.q + '</div>';
+    const optsDiv = document.createElement('div');
+    optsDiv.className = 'quiz-options';
+    q.opts.forEach((opt, oi) => {
+      const btn = document.createElement('div');
+      btn.className = 'quiz-opt';
+      btn.textContent = String.fromCharCode(65+oi) + '. ' + opt;
+      btn.dataset.qi = qi; btn.dataset.oi = oi;
+      btn.onclick = () => handleQuizAnswer(qi, oi, q.ans, btn, optsDiv, s);
+      optsDiv.appendChild(btn);
+    });
+    const fb = document.createElement('div');
+    fb.className = 'quiz-feedback'; fb.id = 'qfb-' + qi;
+    qDiv.appendChild(optsDiv); qDiv.appendChild(fb);
+    wrap.appendChild(qDiv);
+  });
+}
+
+function handleQuizAnswer(qi, oi, correct, btn, optsDiv, s) {
+  if (quizAnswers[qi] !== null) return; // already answered
+  quizAnswers[qi] = oi;
+  const fb = document.getElementById('qfb-' + qi);
+  if (oi === correct) {
+    btn.classList.add('correct');
+    fb.style.color = 'var(--green)';
+    fb.textContent = '✅ Correct!';
+    quizCorrect[qi] = true;
+    // disable other options
+    optsDiv.querySelectorAll('.quiz-opt').forEach(b => { if (b !== btn) b.style.opacity = '.3'; });
+  } else {
+    btn.classList.add('wrong');
+    fb.style.color = 'var(--pink)';
+    fb.innerHTML = '';
+    const wrongMsg = document.createElement('span');
+    wrongMsg.textContent = '✗ Wrong — give it another shot.';
+    fb.appendChild(wrongMsg);
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'quiz-retry-btn mono';
+    retryBtn.textContent = '🔄 TRY AGAIN';
+    retryBtn.onclick = () => resetQuizQuestion(qi, optsDiv, fb);
+    fb.appendChild(document.createElement('br'));
+    fb.appendChild(retryBtn);
+    optsDiv.querySelectorAll('.quiz-opt').forEach(b => { b.style.opacity = '.3'; });
+  }
+  // check if all answered correctly
+  if (quizCorrect.filter(Boolean).length === s.quiz.length) {
+    setTimeout(() => {
+      if (s.noFlagRequired) {
+        advanceStage();
+        return;
+      }
+      // show flag area
+      document.getElementById('quiz-wrap').style.display = 'none';
+      document.getElementById('normal-flag-area').style.display = 'flex';
+      document.getElementById('flag-format-hint').style.display = 'block';
+      document.getElementById('flag-format-hint').textContent = '✅ All questions correct! Enter the flag below.';
+    }, 600);
+  }
+}
+
+// Resets a single quiz question so the player can try it again after a wrong answer.
+function resetQuizQuestion(qi, optsDiv, fb) {
+  quizAnswers[qi] = null;
+  fb.textContent = '';
+  optsDiv.querySelectorAll('.quiz-opt').forEach(b => {
+    b.classList.remove('correct', 'wrong');
+    b.style.opacity = '1';
+  });
+}
+
+// ══════════════════════════════════════════
+//  STAGE 1 MINI-GAME
+// ══════════════════════════════════════════
+let mg0Done=false, mg1Done=false, mg2Done=false, draggedSvc=null;
+
+function initMinigame() {
+  mg0Done=false; mg1Done=false; mg2Done=false;
+  ['mg-step0','mg-step1','mg-step2'].forEach((id,i) => { document.getElementById(id).style.display = i===0?'block':'none'; });
+  [0,1,2].forEach(i => { const d=document.getElementById('mgd'+i); d.style.background='#333'; d.style.borderColor='#555'; });
+  document.getElementById('mg0-feedback').textContent='';
+  document.getElementById('mg1-feedback').textContent='';
+  document.getElementById('mg0-next').style.opacity='.4'; document.getElementById('mg0-next').style.pointerEvents='none';
+  document.getElementById('mg1-next').style.opacity='.4'; document.getElementById('mg1-next').style.pointerEvents='none';
+  document.querySelectorAll('.mg0-door').forEach(d => {
+    d.style.borderColor='#555'; d.style.background='#1a1a1a'; d.dataset.filled='';
+    d.querySelector('div:last-child').textContent='Drop here'; d.querySelector('div:last-child').style.color='#555';
+  });
+  document.querySelectorAll('.mg0-chip').forEach(c => { c.style.display='inline-block'; });
+  initDragDrop(); initMg1(); initMg2();
+}
+
+function dotDone(i) { const d=document.getElementById('mgd'+i); d.style.background='var(--green)'; d.style.borderColor='var(--green)'; }
+
+function mgStep(n) {
+  ['mg-step0','mg-step1','mg-step2'].forEach((id,i) => { document.getElementById(id).style.display=i===n?'block':'none'; });
+  dotDone(n-1);
+}
+
+function initDragDrop() {
+  document.querySelectorAll('.mg0-chip').forEach(chip => {
+    chip.addEventListener('dragstart', () => { draggedSvc=chip.dataset.svc; chip.style.opacity='.4'; });
+    chip.addEventListener('dragend', () => { chip.style.opacity='1'; });
+  });
+  document.querySelectorAll('.mg0-door').forEach(door => {
+    door.addEventListener('dragover', e => { e.preventDefault(); door.style.borderColor='var(--banana)'; });
+    door.addEventListener('dragleave', () => { if (!door.dataset.filled) door.style.borderColor='#555'; });
+    door.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!draggedSvc) return;
+      const correct=door.dataset.ans; const label=door.querySelector('div:last-child');
+      if (draggedSvc===correct) {
+        door.style.borderColor='var(--green)'; door.style.background='#001a08';
+        label.textContent='✅ '+draggedSvc; label.style.color='var(--green)';
+        door.dataset.filled=draggedSvc;
+        document.querySelector('.mg0-chip[data-svc="'+draggedSvc+'"]').style.display='none';
+        draggedSvc=null;
+        const allDone=[...document.querySelectorAll('.mg0-door')].every(d=>d.dataset.filled);
+        if (allDone) {
+          document.getElementById('mg0-feedback').innerHTML='<span style="color:var(--green)">✅ Perfect! All services matched correctly.</span>';
+          document.getElementById('mg0-next').style.opacity='1'; document.getElementById('mg0-next').style.pointerEvents='auto';
+          mg0Done=true;
+        }
+      } else {
+        door.style.borderColor='var(--pink)';
+        document.getElementById('mg0-feedback').innerHTML='<span style="color:var(--pink)">✗ Wrong port for '+draggedSvc+'. Think about what each service does.</span>';
+        setTimeout(()=>{ if(!door.dataset.filled) door.style.borderColor='#555'; },800);
+        draggedSvc=null;
+      }
+    });
+  });
+}
+
+const mg1Questions=[
+  { q:"Port 445 was introduced with Windows 2000 and runs SMB directly over TCP/IP.", ans:true },
+  { q:"Port 139 is the modern preferred port for SMB file sharing.", ans:false },
+  { q:"A filtered port means a firewall is silently dropping packets — you get no response.", ans:true }
+];
+let mg1qi=0, mg1correct=0;
+
+function initMg1() { mg1qi=0; mg1correct=0; loadMg1Question(); }
+function loadMg1Question() {
+  if (mg1qi>=mg1Questions.length) {
+    dotDone(1); mg1Done=true;
+    document.getElementById('mg1-feedback').innerHTML='<span style="color:var(--green)">✅ All correct! You understand SMB ports.</span>';
+    document.getElementById('mg1-next').style.opacity='1'; document.getElementById('mg1-next').style.pointerEvents='auto';
+    return;
+  }
+  const q=mg1Questions[mg1qi];
+  document.getElementById('mg1-question').textContent = 'Q'+(mg1qi+1)+'/'+mg1Questions.length+': '+q.q;
+  const ch=document.getElementById('mg1-choices'); ch.innerHTML='';
+  ['TRUE','FALSE'].forEach(opt => {
+    const btn=document.createElement('button');
+    btn.className='btn-comic bangers';
+    btn.style.cssText='padding:8px 22px;font-size:1.1rem;'+(opt==='TRUE'?'background:var(--green);color:#000;':'background:var(--pink);color:#fff;');
+    btn.textContent=opt;
+    btn.onclick=()=>{
+      const correct=(opt==='TRUE')===q.ans;
+      document.getElementById('mg1-feedback').innerHTML=correct
+        ?'<span style="color:var(--green)">✅ Correct!</span>'
+        :'<span style="color:var(--pink)">✗ Wrong. Re-read the lesson.</span>';
+      if(correct){ mg1qi++; setTimeout(loadMg1Question,800); }
+    };
+    ch.appendChild(btn);
+  });
+}
+
+function initMg2() { document.getElementById('mg2-flag-input').value=''; document.getElementById('mg2-feedback').textContent=''; }
+
+function mg2FlagCheck() {
+  const val=document.getElementById('mg2-flag-input').value.trim();
+  const fb=document.getElementById('mg2-feedback');
+  const entered=val.split(',').map(p=>p.trim()).filter(Boolean).sort();
+  const correct=['21','80','445'].sort();
+  if (entered.join(',')===correct.join(',')) {
+    fb.innerHTML='<span style="color:var(--green)">✅ Perfect! Ports 21 (FTP), 80 (HTTP), 445 (SMB) — all open. Note 139 is filtered. This is why we target 445.</span>';
+    dotDone(2); mg2Done=true;
+    const card=document.getElementById('stage-card');
+    card.style.borderColor='var(--green)'; card.style.boxShadow='10px 10px 0 var(--green-dim)';
+    setTimeout(()=>{ card.style.borderColor=''; card.style.boxShadow=''; current++; loadStage(); },1600);
+  } else {
+    fb.innerHTML='<span style="color:var(--pink)">✗ Not quite. Run nmap on your VM and check the STATE column — only OPEN ports.</span>';
+    document.getElementById('stage-card').classList.add('shake');
+    setTimeout(()=>document.getElementById('stage-card').classList.remove('shake'),400);
+  }
+}
+</script>
+</body>
+</html>
