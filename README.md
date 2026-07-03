@@ -15,15 +15,7 @@
 </div>
 
 ---
-
-## 👥 Project Team
-
-| # | Name | Role |
-|---|------|------|
-| 1 | Andrew Beshay Mousa | Team Member |
-| 2 | Ahmed Ashraf Ahmed | Team Member |
-| 3 | Youssef Hany Elshamly | Team Member |
-| 4 | Mazen Ashraf Basha | Team Member |
+## Created By Andrew Beshay Mousa SOC Analysis Student
 
 ---
 
